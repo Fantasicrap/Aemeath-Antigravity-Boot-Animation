@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Package the pre-compiled Portable One-Click Release ZIP (绿色开箱版).
+"""Package the pre-compiled One-Click Installer Release ZIP (一键安装版).
 
 Outputs:
-  dist/爱弥斯开机动画_全平台AI绿色开箱版_v1.2.zip
+  dist/爱弥斯开机动画_全平台AI一键安装版_v1.2.zip
 """
 import os
 import shutil
@@ -12,13 +12,13 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WIN_BUILD = os.path.join(REPO_ROOT, "windows-overlay", "build")
 PLUG_DIR = os.path.join(REPO_ROOT, "antigravity-plugin")
 DIST_DIR = os.path.join(REPO_ROOT, "dist")
-STAGE_NAME = "爱弥斯开机动画_全平台AI绿色开箱版"
+STAGE_NAME = "爱弥斯开机动画_全平台AI一键安装版"
 STAGE_DIR = os.path.join(DIST_DIR, STAGE_NAME)
-ZIP_PATH = os.path.join(DIST_DIR, "爱弥斯开机动画_全平台AI绿色开箱版_v1.2.zip")
+ZIP_PATH = os.path.join(DIST_DIR, "爱弥斯开机动画_全平台AI一键安装版_v1.2.zip")
 ASCII_ZIP_PATH = os.path.join(DIST_DIR, "Aemeath-Boot-v1.2-All-AI-Apps.zip")
 
 
-INSTALL_PREBUILT_PS1 = r"""# 直接安装预编译好的爱弥斯开机动画（免编译绿色开箱版，不修改任何 AI 软件本体）
+INSTALL_PREBUILT_PS1 = r"""# 直接安装预编译好的爱弥斯开机动画（免编译一键安装版，不修改任何 AI 软件本体）
 param([string]$Dir)
 $ErrorActionPreference = 'Stop'
 $name = 'AemeathAntigravityBoot'
@@ -96,7 +96,7 @@ pause
 """
 
 README_TXT = """==========================================================================
-  爱弥斯（Aemeath · 飞行雪绒）开机动画 · 全平台 AI 绿色开箱版 v1.2
+  爱弥斯（Aemeath · 飞行雪绒）开机动画 · 全平台 AI 一键安装版 v1.2
   一站式全支持：Antigravity / DeepSeek Harness / Claude Desktop / Codex
 ==========================================================================
 

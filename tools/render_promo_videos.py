@@ -752,7 +752,7 @@ def build_outro_card(w, h, icons, vertical=False):
         d.rounded_rectangle([cx - uw // 2 - 34, y0 + 532, cx + uw // 2 + 34, y0 + 594], radius=16, fill=(18, 28, 48, 240), outline=(112, 228, 255, 185), width=2)
         d.text((cx - uw // 2, y0 + 548), url, font=f_url, fill=(176, 242, 255, 255))
 
-        cta = "完全免费开源 · GitHub Releases 提供绿色开箱版，解压双击即用"
+        cta = "完全免费开源 · GitHub Releases 提供一键安装版，解压双击即用"
         cb = d.textbbox((0, 0), cta, font=f_cta)
         d.text((cx - (cb[2] - cb[0]) // 2, y0 + 634), cta, font=f_cta, fill=(255, 202, 232, 240))
     else:
@@ -802,7 +802,7 @@ def build_outro_card(w, h, icons, vertical=False):
         u2b = d.textbbox((0, 0), url2, font=f_url)
         d.text((cx - (u2b[2] - u2b[0]) // 2, y0 + 972), url2, font=f_url, fill=(168, 242, 255, 255))
 
-        cta = "解压绿色开箱版双击即用 · 零侵入原软件"
+        cta = "下载一键安装版双击即用 · 零侵入原软件"
         cb = d.textbbox((0, 0), cta, font=f_cta)
         d.text((cx - (cb[2] - cb[0]) // 2, y0 + 1054), cta, font=f_cta, fill=(255, 224, 242, 245))
 
@@ -1094,7 +1094,7 @@ class PromoComposer:
             lb = d.textbbox((0, 0), app["short"], font=f_lbl)
             d.text((ax - (lb[2] - lb[0]) // 2, 174), app["short"], font=f_lbl, fill=(255, 255, 255, 255 if is_act else 165))
 
-        ft = "GitHub 开源免费 · 四合一全平台绿色开箱版"
+        ft = "GitHub 开源免费 · 四合一全平台一键安装版"
         fb = d.textbbox((0, 0), ft, font=f_ft)
         d.text((cx - (fb[2] - fb[0]) // 2, 254), ft, font=f_ft, fill=(235, 210, 232, 230))
         return img
@@ -1702,7 +1702,7 @@ def start_encoder(ffmpeg_bin, out_mp4, w, h, audio_wav):
         "-map", "0:v:0", "-map", "1:a:0",
         "-c:v", "libx264", "-profile:v", "high", "-level", "4.1",
         "-pix_fmt", "yuv420p", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
-        "-crf", "17", "-preset", "medium",
+        "-crf", "17", "-preset", "veryfast",
         "-c:a", "aac", "-b:a", "192k", "-ar", str(SR), "-ac", "2",
         "-movflags", "+faststart", "-shortest",
         out_mp4,
