@@ -12,9 +12,9 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WIN_BUILD = os.path.join(REPO_ROOT, "windows-overlay", "build")
 PLUG_DIR = os.path.join(REPO_ROOT, "antigravity-plugin")
 DIST_DIR = os.path.join(REPO_ROOT, "dist")
-STAGE_NAME = "爱弥斯开机动画_Antigravity_DeepSeekHarness_傻瓜版"
+STAGE_NAME = "爱弥斯开机动画_全平台AI傻瓜版"
 STAGE_DIR = os.path.join(DIST_DIR, STAGE_NAME)
-ZIP_PATH = os.path.join(DIST_DIR, "爱弥斯开机动画_傻瓜版_v1.1.zip")
+ZIP_PATH = os.path.join(DIST_DIR, "爱弥斯开机动画_全平台AI傻瓜版_v1.2.zip")
 
 
 INSTALL_PREBUILT_PS1 = r"""# 直接安装预编译好的爱弥斯开机动画（傻瓜版，无需编译，不修改 Antigravity 本体）
@@ -68,8 +68,8 @@ CMD_TRY = """@echo off
 chcp 65001 >nul
 cd /d "%~dp0"
 taskkill /f /im AemeathAntigravityBoot.exe >nul 2>nul
-echo ✦ 正在启动爱弥斯开机动画（支持 Antigravity 与 DeepSeek Harness 双桌面端，本次试玩不写入开机自启）...
-echo   提示：请先打开 Antigravity 或 DeepSeek Harness 任意一个，设置窗口会自动弹出，可随时切 A/B/C 方案与自定义台词。
+echo ✦ 正在启动爱弥斯开机动画（全支持 Antigravity / DeepSeek Harness / Claude Desktop / Codex）...
+echo   提示：先打开任意上述 AI 桌面端，设置窗口会自动弹出，可勾选要监听的应用、切 A/B/C 方案与自定义台词。
 start "" "%~dp0bin\\AemeathAntigravityBoot.exe" --settings --play-now
 """
 
@@ -102,34 +102,39 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0bin\\uninstall.ps1"
 pause
 """
 
-README_TXT = """========================================================================
-  爱弥斯（Aemeath · 飞行雪绒）开机动画 · 傻瓜版 v1.1
-  原生双支持：Google Antigravity + DeepSeek Harness 桌面端！
-========================================================================
+README_TXT = """==========================================================================
+  爱弥斯（Aemeath · 飞行雪绒）开机动画 · 全主流 AI 傻瓜版 v1.2
+  一站式全支持：Antigravity / DeepSeek Harness / Claude Desktop / Codex
+==========================================================================
+
+【四大主流 AI 桌面端原生全支持（可同时并发独立播放）】
+  ✓ Google Antigravity  (Antigravity.exe)
+  ✓ DeepSeek Harness    (DeepSeek Harness.exe)
+  ✓ Claude Desktop      (claude.exe)
+  ✓ Codex / ChatGPT     (Codex.exe / ChatGPT.exe)
 
 【特色亮点】
-1. 同时支持 Antigravity 与 DeepSeek Harness（DeepSeek Harness.exe），可双窗口同时独立播放、互不干扰！
-2. 100%《鸣潮》库洛官方原片素材 + 14.5 秒《于电子星海轻歌》快启音轨
-3. 内置 A / B / C 三套演出方案随时一键切换：
+1. 100%《鸣潮》库洛官方原片素材 + 14.5 秒《于电子星海轻歌》快启音轨
+2. 内置 A / B / C 三套演出方案随时一键切换：
    - 方案 A · 一镜到底「官方星海睁眼觉醒」
    - 方案 B · 双形态切换「电子幽灵 × 隧者机兵」
    - 方案 C · 多幕剧情混剪「纸飞机 / 祝福 / 拯救 / 远航星」
-4. 支持自定义思源宋体开屏台词（默认：拯救世界的事，就交给我吧……），修改即时生效
-5. 零入侵：完全不修改 Antigravity / DeepSeek Harness 本体文件，随时可一键彻底卸载
+3. 支持自定义思源宋体开屏台词（默认：拯救世界的事，就交给我吧……），修改即时生效
+4. 零入侵：完全不修改任何 AI 软件本体文件，随时可一键彻底卸载
 
 【使用步骤（请先完整解压到任意文件夹再双击！）】
 👉 想先看效果（不写入开机自启）：
-   - 双击【1_点我试玩(自动检测窗口).cmd】：自动在已打开的 Antigravity 或 DeepSeek Harness 上播放
-   - 双击【1b_点我试玩_DeepSeekHarness.cmd】：专门在 DeepSeek Harness 窗口上试播
+   双击【1_点我试玩(自动检测所有AI窗口).cmd】
+   自动识别当前打开的 Antigravity / DeepSeek Harness / Claude / Codex 窗口并弹出设置窗口，可自由勾选监听目标、切 A/B/C 与改台词
 
-👉 觉得满意，设为每次打开应用自动播放：
+👉 觉得满意，设为每次打开 AI 自动播放：
    双击【2_点我安装(开机自启).cmd】
-   （安装后右下角托盘出现粉青四芒星 ✦ 图标，左键/右键随时勾选 Antigravity / DeepSeek Harness、切 A/B/C、改台词）
+   （安装后右下角托盘出现粉青四芒星 ✦ 图标，左键/右键随时独立勾选 4 款 AI、切 A/B/C、调透明度与音量）
 
-👉 安装 Antigravity 左侧 Plugins 栏内置插件（需本机有 Python 3）：
+👉 同时安装 Antigravity 左侧 Plugins 栏内置插件（需本机有 Python 3）：
    双击【3_安装Antigravity侧栏插件.cmd】，刷新 Antigravity 即可在左侧栏看到「爱弥斯开场」
 
-👉 直接在浏览器预览动画：
+👉 没开 AI 软件也想先在浏览器预览：
    双击【4_浏览器直接预览动画.html】即可体验（右下角悬停可切 A/B/C 方案与改台词）
 
 👉 彻底卸载：
@@ -175,8 +180,7 @@ def main():
     shutil.copy2(os.path.join(PLUG_DIR, "assets", "logo.svg"), os.path.join(plug_dst, "assets", "logo.svg"))
 
     # Copy root foolproof launchers & standalone browser preview
-    write_text(os.path.join(STAGE_DIR, "1_点我试玩(自动检测窗口).cmd"), CMD_TRY, bom=False)
-    write_text(os.path.join(STAGE_DIR, "1b_点我试玩_DeepSeekHarness.cmd"), CMD_TRY_DSH, bom=False)
+    write_text(os.path.join(STAGE_DIR, "1_点我试玩(自动检测所有AI窗口).cmd"), CMD_TRY, bom=False)
     write_text(os.path.join(STAGE_DIR, "2_点我安装(开机自启).cmd"), CMD_INSTALL, bom=False)
     write_text(os.path.join(STAGE_DIR, "3_安装Antigravity侧栏插件.cmd"), CMD_PLUGIN, bom=False)
     shutil.copy2(os.path.join(PLUG_DIR, "intro.html"), os.path.join(STAGE_DIR, "4_浏览器直接预览动画.html"))

@@ -1,8 +1,8 @@
 // 爱弥斯开机动画（《鸣潮》Aemeath · 飞行雪绒）· Windows 版 —— 外置浮层小程序
-// 同时支持 Antigravity 与 DeepSeek Harness 双桌面端自动监听与独立叠加播放！
-// 支持 A / B / C 三套演出方案自由切换，支持自定义开屏台词字幕（默认：拯救世界的事，就交给我吧……）。
+// 原生全支持主流 AI 桌面端：Antigravity / DeepSeek Harness / Claude Desktop / Codex (ChatGPT)！
+// 支持多窗口同时独立播放、A / B / C 三套演出方案一键切换、自定义思源宋体台词（默认：拯救世界的事，就交给我吧……）。
 // 检测目标窗口启动 → 盖在其主窗口上播放 14.5s《于电子星海轻歌》快启开屏动画 → 五次方丝滑淡出，进入半透明、点击穿透无缝循环背景。
-// 不修改 Antigravity / DeepSeek Harness 任何本体文件。使用系统自带 .NET Framework 4.x 编译器直编（C# 5 语法），无需安装任何 SDK。
+// 全程不修改任何软件本体文件。使用系统自带 .NET Framework 4.x 编译器直编（C# 5 语法），无需安装任何 SDK。
 //
 // Based on wynneceles/ai-boot-animations & xxjj2024/Roxy-Antigravity-Boot-Animation (GNU GPL v3)
 // This program is free software under the GNU General Public License v3.
@@ -48,6 +48,8 @@ namespace AemeathAntigravityBoot
         public string Mode = "a";                  // 演出方案：a = 一镜到底星海觉醒 / b = 双形态隧者机兵 / c = 多幕剧情浓缩
         public bool EnableAntigravity = true;      // 监听 Antigravity.exe
         public bool EnableDeepSeekHarness = true;  // 监听 DeepSeek Harness.exe
+        public bool EnableClaude = true;           // 监听 Claude Desktop (claude.exe)
+        public bool EnableCodex = true;            // 监听 Codex / ChatGPT Desktop (Codex.exe / ChatGPT.exe)
         public bool PlayIntro = true;              // 启动时播放开屏动画
         public bool LoopBackground = true;         // 开屏后保留半透明循环背景
         public double FadeStartSeconds = 12.60;    // 14.5s 快启版在 12.60s 高潮收束处启动五次方丝滑淡出
@@ -81,6 +83,8 @@ namespace AemeathAntigravityBoot
         {
             if (appKey == Finder.AppAntigravity) return EnableAntigravity;
             if (appKey == Finder.AppDeepSeekHarness) return EnableDeepSeekHarness;
+            if (appKey == Finder.AppClaude) return EnableClaude;
+            if (appKey == Finder.AppCodex) return EnableCodex;
             return true;
         }
 
@@ -116,6 +120,8 @@ namespace AemeathAntigravityBoot
                         c.Mode = NormalizeMode(S(d, "mode", c.Mode));
                         c.EnableAntigravity = B(d, "enableAntigravity", c.EnableAntigravity);
                         c.EnableDeepSeekHarness = B(d, "enableDeepSeekHarness", c.EnableDeepSeekHarness);
+                        c.EnableClaude = B(d, "enableClaude", c.EnableClaude);
+                        c.EnableCodex = B(d, "enableCodex", c.EnableCodex);
                         c.PlayIntro = B(d, "playIntro", c.PlayIntro);
                         c.LoopBackground = B(d, "loopBackground", c.LoopBackground);
                         c.FadeStartSeconds = D(d, "fadeStartSeconds", c.FadeStartSeconds);
@@ -163,6 +169,8 @@ namespace AemeathAntigravityBoot
                 sb.Append("  \"mode\" : " + js.Serialize(NormalizeMode(Mode)) + ",\n");
                 sb.Append("  \"enableAntigravity\" : " + L(EnableAntigravity) + ",\n");
                 sb.Append("  \"enableDeepSeekHarness\" : " + L(EnableDeepSeekHarness) + ",\n");
+                sb.Append("  \"enableClaude\" : " + L(EnableClaude) + ",\n");
+                sb.Append("  \"enableCodex\" : " + L(EnableCodex) + ",\n");
                 sb.Append("  \"fadeDurationSeconds\" : " + N(FadeDurationSeconds) + ",\n");
                 sb.Append("  \"fadeStartSeconds\" : " + N(FadeStartSeconds) + ",\n");
                 sb.Append("  \"introVolume\" : " + N(IntroVolume) + ",\n");
@@ -335,6 +343,8 @@ namespace AemeathAntigravityBoot
     {
         public const string AppAntigravity = "antigravity";
         public const string AppDeepSeekHarness = "deepseek-harness";
+        public const string AppClaude = "claude";
+        public const string AppCodex = "codex";
         public const string AppTest = "test";
 
         public static string TestTitle;
@@ -343,11 +353,13 @@ namespace AemeathAntigravityBoot
         public static string DisplayName(string appKey)
         {
             if (appKey == AppDeepSeekHarness) return "DeepSeek Harness";
+            if (appKey == AppClaude) return "Claude Desktop";
+            if (appKey == AppCodex) return "Codex / ChatGPT";
             if (appKey == AppAntigravity) return "Antigravity";
             return appKey ?? "目标窗口";
         }
 
-        public static string MatchProcess(string procName)
+        public static string MatchWindow(IntPtr hwnd, string procName)
         {
             if (string.IsNullOrEmpty(procName)) return null;
             string p = procName.Trim();
@@ -359,6 +371,13 @@ namespace AemeathAntigravityBoot
                 || string.Equals(p, "DeepSeek.Harness-x64", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(p, "dsh-desktop", StringComparison.OrdinalIgnoreCase))
                 return AppDeepSeekHarness;
+            // Claude Desktop：Electron 应用，仅匹配 Chrome_WidgetWin_1 主窗口，跳过辅助小窗
+            if (string.Equals(p, "claude", StringComparison.OrdinalIgnoreCase))
+                return Native.ClassOf(hwnd) == "Chrome_WidgetWin_1" ? AppClaude : null;
+            // Codex / ChatGPT Desktop：Windows 上商店版包名 OpenAI.Codex 的窗口进程是 ChatGPT.exe，独立版可能叫 Codex.exe
+            if (string.Equals(p, "codex", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(p, "chatgpt", StringComparison.OrdinalIgnoreCase))
+                return AppCodex;
             return null;
         }
 
@@ -372,7 +391,7 @@ namespace AemeathAntigravityBoot
             return n;
         }
 
-        /// 查找所有已识别且启用的目标应用最大主窗口（可同时返回 Antigravity 和 DeepSeek Harness）
+        /// 查找所有已识别且启用的目标 AI 桌面端最大主窗口（支持四款应用同时并发叠加）
         public static List<Target> FindAll(Config config, string onlyAppKey)
         {
             var bestByApp = new Dictionary<string, Target>();
@@ -394,7 +413,7 @@ namespace AemeathAntigravityBoot
                 }
                 else
                 {
-                    appKey = MatchProcess(ProcName(pid));
+                    appKey = MatchWindow(h, ProcName(pid));
                     if (appKey == null) return true;
                     if (onlyAppKey != null && !string.Equals(appKey, onlyAppKey, StringComparison.OrdinalIgnoreCase)) return true;
                     if (onlyAppKey == null && config != null && !config.IsTargetEnabled(appKey)) return true;
@@ -1156,7 +1175,7 @@ namespace AemeathAntigravityBoot
     {
         readonly App app;
         RadioButton modeA, modeB, modeC;
-        CheckBox appAgBox, appDshBox, introBox, loopBox, subBox;
+        CheckBox appAgBox, appDshBox, appClaudeBox, appCodexBox, introBox, loopBox, subBox;
         TextBox subMainBox, subSecBox;
         Slider alphaSlider, volSlider;
         TextBlock alphaVal, volVal;
@@ -1165,19 +1184,24 @@ namespace AemeathAntigravityBoot
         public SettingsWindow(App app)
         {
             this.app = app;
-            Title = "爱弥斯开机动画 · 设置（Antigravity / DeepSeek Harness）";
-            Width = 486; SizeToContent = SizeToContent.Height; ResizeMode = ResizeMode.NoResize;
+            Title = "爱弥斯开机动画 · 设置（全主流 AI 桌面端）";
+            Width = 510; SizeToContent = SizeToContent.Height; ResizeMode = ResizeMode.NoResize;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             FontFamily = new FontFamily("Microsoft YaHei UI"); FontSize = 13;
             var sp = new StackPanel { Margin = new Thickness(22, 14, 22, 18) };
 
-            sp.Children.Add(Header("监听的目标桌面端（可同时勾选，互不干扰）"));
+            sp.Children.Add(Header("监听的 AI 桌面端（可同时勾选，多窗口独立播放）"));
             var appRow = new WrapPanel { Margin = new Thickness(0, 6, 0, 4) };
-            appAgBox = new CheckBox { Content = "Antigravity", Margin = new Thickness(0, 0, 22, 4) };
-            appDshBox = new CheckBox { Content = "DeepSeek Harness", Margin = new Thickness(0, 0, 12, 4) };
+            appAgBox = new CheckBox { Content = "Antigravity", Margin = new Thickness(0, 0, 16, 4) };
+            appDshBox = new CheckBox { Content = "DeepSeek Harness", Margin = new Thickness(0, 0, 16, 4) };
+            appClaudeBox = new CheckBox { Content = "Claude Desktop", Margin = new Thickness(0, 0, 16, 4) };
+            appCodexBox = new CheckBox { Content = "Codex / ChatGPT", Margin = new Thickness(0, 0, 0, 4) };
             appAgBox.Click += delegate { Changed(); };
             appDshBox.Click += delegate { Changed(); };
+            appClaudeBox.Click += delegate { Changed(); };
+            appCodexBox.Click += delegate { Changed(); };
             appRow.Children.Add(appAgBox); appRow.Children.Add(appDshBox);
+            appRow.Children.Add(appClaudeBox); appRow.Children.Add(appCodexBox);
             sp.Children.Add(appRow);
 
             sp.Children.Add(Header("选择开场演出方案（14.5s《于电子星海轻歌》）"));
@@ -1214,10 +1238,13 @@ namespace AemeathAntigravityBoot
             alphaSlider = MakeSlider(sp, "背景不透明度", 0.8, out alphaVal);
             volSlider = MakeSlider(sp, "开屏音量（再乘系统音量）", 1, out volVal);
 
-            sp.Children.Add(Header("立即在已打开的窗口上播放"));
+            sp.Children.Add(Header("立即在已打开的 AI 窗口上播放"));
             var row = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
-            row.Children.Add(Btn("在 Antigravity 播放", delegate { app.PreviewIntro(Finder.AppAntigravity); }));
-            row.Children.Add(Btn("在 DeepSeek Harness 播放", delegate { app.PreviewIntro(Finder.AppDeepSeekHarness); }));
+            row.Children.Add(Btn("自动检测播放", delegate { app.PreviewIntro(null); }));
+            row.Children.Add(Btn("Antigravity", delegate { app.PreviewIntro(Finder.AppAntigravity); }));
+            row.Children.Add(Btn("DeepSeek Harness", delegate { app.PreviewIntro(Finder.AppDeepSeekHarness); }));
+            row.Children.Add(Btn("Claude", delegate { app.PreviewIntro(Finder.AppClaude); }));
+            row.Children.Add(Btn("Codex", delegate { app.PreviewIntro(Finder.AppCodex); }));
             row.Children.Add(Btn("开启循环背景", delegate { app.PreviewLoop(null); }));
             row.Children.Add(Btn("全部关掉", delegate { app.StopAllShows(); }));
             sp.Children.Add(row);
@@ -1263,6 +1290,8 @@ namespace AemeathAntigravityBoot
             var c = app.Config;
             appAgBox.IsChecked = c.EnableAntigravity;
             appDshBox.IsChecked = c.EnableDeepSeekHarness;
+            appClaudeBox.IsChecked = c.EnableClaude;
+            appCodexBox.IsChecked = c.EnableCodex;
             string m = Config.NormalizeMode(c.Mode);
             modeA.IsChecked = (m == "a");
             modeB.IsChecked = (m == "b");
@@ -1292,6 +1321,8 @@ namespace AemeathAntigravityBoot
             {
                 c.EnableAntigravity = appAgBox.IsChecked == true;
                 c.EnableDeepSeekHarness = appDshBox.IsChecked == true;
+                c.EnableClaude = appClaudeBox.IsChecked == true;
+                c.EnableCodex = appCodexBox.IsChecked == true;
                 c.PlayIntro = introBox.IsChecked == true;
                 c.LoopBackground = loopBox.IsChecked == true;
                 c.ShowSubtitles = subBox.IsChecked == true;
@@ -1316,7 +1347,7 @@ namespace AemeathAntigravityBoot
         public Config Config;
         readonly Dictionary<string, Show> shows = new Dictionary<string, Show>();
         WF.NotifyIcon tray;
-        WF.ToolStripMenuItem agItem, dshItem, introItem, loopItem, stopItem, modeAItem, modeBItem, modeCItem;
+        WF.ToolStripMenuItem agItem, dshItem, claudeItem, codexItem, introItem, loopItem, stopItem, modeAItem, modeBItem, modeCItem;
         WF.ToolStripLabel alphaLabel, volLabel;
         WF.TrackBar alphaBar, volBar;
         SettingsWindow settings;
@@ -1432,7 +1463,7 @@ namespace AemeathAntigravityBoot
                 targets = Finder.FindAll(null, null); // 若全部勾选窗口没开，也兜底找任意已开支持窗口
             if (targets.Count == 0)
             {
-                string who = onlyAppKey != null ? Finder.DisplayName(onlyAppKey) : "Antigravity 或 DeepSeek Harness";
+                string who = onlyAppKey != null ? Finder.DisplayName(onlyAppKey) : "Antigravity / DeepSeek Harness / Claude / Codex";
                 if (tray != null) tray.ShowBalloonTip(3000, "爱弥斯开机动画", "没找到 " + who + " 窗口，请先把应用打开吧。", WF.ToolTipIcon.Info);
                 return false;
             }
@@ -1497,7 +1528,7 @@ namespace AemeathAntigravityBoot
 
         public void Uninstall()
         {
-            var r = MessageBox.Show("会删除这个小程序、开机自启、设置和日志。Antigravity 与 DeepSeek Harness 本体均未被改过，卸载后就是原装的样子。",
+            var r = MessageBox.Show("会删除这个小程序、开机自启、设置和日志。Antigravity、DeepSeek Harness、Claude Desktop、Codex 本体均未被改过，卸载后就是原装的样子。",
                 "卸载爱弥斯开机动画？", MessageBoxButton.OKCancel, MessageBoxImage.Question);
             if (r != MessageBoxResult.OK) return;
             foreach (var s in new List<Show>(shows.Values))
@@ -1543,14 +1574,18 @@ namespace AemeathAntigravityBoot
 
         void SetupTray()
         {
-            tray = new WF.NotifyIcon { Icon = MakeIcon(), Text = "爱弥斯开机动画（Antigravity + DeepSeek Harness）", Visible = true };
+            tray = new WF.NotifyIcon { Icon = MakeIcon(), Text = "爱弥斯开机动画（全主流 AI 桌面端）", Visible = true };
             var m = new WF.ContextMenuStrip();
-            m.Items.Add(new WF.ToolStripLabel("监听的目标桌面端") { Enabled = false });
+            m.Items.Add(new WF.ToolStripLabel("监听的 AI 桌面端") { Enabled = false });
             agItem = new WF.ToolStripMenuItem("Antigravity");
             agItem.Click += delegate { Update(delegate (Config c) { c.EnableAntigravity = !c.EnableAntigravity; }, null); };
             dshItem = new WF.ToolStripMenuItem("DeepSeek Harness");
             dshItem.Click += delegate { Update(delegate (Config c) { c.EnableDeepSeekHarness = !c.EnableDeepSeekHarness; }, null); };
-            m.Items.Add(agItem); m.Items.Add(dshItem);
+            claudeItem = new WF.ToolStripMenuItem("Claude Desktop");
+            claudeItem.Click += delegate { Update(delegate (Config c) { c.EnableClaude = !c.EnableClaude; }, null); };
+            codexItem = new WF.ToolStripMenuItem("Codex / ChatGPT");
+            codexItem.Click += delegate { Update(delegate (Config c) { c.EnableCodex = !c.EnableCodex; }, null); };
+            m.Items.Add(agItem); m.Items.Add(dshItem); m.Items.Add(claudeItem); m.Items.Add(codexItem);
             m.Items.Add(new WF.ToolStripSeparator());
 
             m.Items.Add(new WF.ToolStripLabel("演出方案（14.5s《于电子星海轻歌》）") { Enabled = false });
@@ -1590,8 +1625,11 @@ namespace AemeathAntigravityBoot
             m.Items.Add(new WF.ToolStripSeparator());
 
             m.Items.Add(new WF.ToolStripLabel("立即播放") { Enabled = false });
-            m.Items.Add("在 Antigravity 播放开屏", null, delegate { PreviewIntro(Finder.AppAntigravity); });
-            m.Items.Add("在 DeepSeek Harness 播放开屏", null, delegate { PreviewIntro(Finder.AppDeepSeekHarness); });
+            m.Items.Add("自动检测当前打开的 AI 窗口播放", null, delegate { PreviewIntro(null); });
+            m.Items.Add("在 Antigravity 播放", null, delegate { PreviewIntro(Finder.AppAntigravity); });
+            m.Items.Add("在 DeepSeek Harness 播放", null, delegate { PreviewIntro(Finder.AppDeepSeekHarness); });
+            m.Items.Add("在 Claude Desktop 播放", null, delegate { PreviewIntro(Finder.AppClaude); });
+            m.Items.Add("在 Codex / ChatGPT 播放", null, delegate { PreviewIntro(Finder.AppCodex); });
             m.Items.Add("开启循环背景", null, delegate { PreviewLoop(null); });
             stopItem = new WF.ToolStripMenuItem("关掉所有动画 / 背景");
             stopItem.Click += delegate { StopAllShows(); };
@@ -1617,6 +1655,8 @@ namespace AemeathAntigravityBoot
             menuLoading = true;
             agItem.Checked = Config.EnableAntigravity;
             dshItem.Checked = Config.EnableDeepSeekHarness;
+            claudeItem.Checked = Config.EnableClaude;
+            codexItem.Checked = Config.EnableCodex;
             string m = Config.NormalizeMode(Config.Mode);
             modeAItem.Checked = (m == "a");
             modeBItem.Checked = (m == "b");

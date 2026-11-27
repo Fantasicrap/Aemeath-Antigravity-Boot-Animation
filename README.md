@@ -1,12 +1,18 @@
-# Aemeath Boot Animation ✦ 爱弥斯开场动画（Antigravity & DeepSeek Harness 双支持）
+# Aemeath AI Boot Animation ✦ 爱弥斯开场动画（全主流 AI 桌面端支持）
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](./LICENSE)
 [![Platform: Windows 10/11](https://img.shields.io/badge/Platform-Windows%2010%2F11-ff7eb8.svg)](#快速开始)
-[![Targets: Antigravity + DeepSeek Harness](https://img.shields.io/badge/Targets-Antigravity%20%2B%20DeepSeek%20Harness-6ae8ff.svg)](#快速开始)
+[![Targets: Antigravity | DeepSeek Harness | Claude | Codex](https://img.shields.io/badge/AI%20Apps-Antigravity%20%7C%20DeepSeek%20Harness%20%7C%20Claude%20%7C%20Codex-6ae8ff.svg)](#快速开始)
 
-一个同时支持 **Google Antigravity** 与 **DeepSeek Harness** 桌面端的《鸣潮》**爱弥斯（Aemeath · 飞行雪绒）** 主题开场动画与半透明动态星海背景项目。
+一个同时支持 **Google Antigravity / DeepSeek Harness / Claude Desktop / Codex (ChatGPT)** 四大主流 AI 桌面端的《鸣潮》**爱弥斯（Aemeath · 飞行雪绒）** 主题开场动画与半透明动态星海背景项目。
 
-项目参考 [Roxy-Antigravity-Boot-Animation](https://github.com/xxjj2024/Roxy-Antigravity-Boot-Animation) 与 [wynneceles/ai-boot-animations](https://github.com/wynneceles/ai-boot-animations) 的零入侵双形态架构，采用 100% 库洛官方原片素材 +《于电子星海轻歌》**14.5 秒快启高能版**，支持 **Antigravity 与 DeepSeek Harness 双桌面端同时独立监听播放**、**A / B / C 三套演出方案一键切换**、以及 **实时自定义思源宋体台词字幕**（默认台词：`拯救世界的事，就交给我吧……`），**全程不修改任何软件本体文件**。
+项目参考 [Roxy-Antigravity-Boot-Animation](https://github.com/xxjj2024/Roxy-Antigravity-Boot-Animation) 与 [wynneceles/ai-boot-animations](https://github.com/wynneceles/ai-boot-animations) 的零入侵双形态架构，采用 100% 库洛官方原片素材 +《于电子星海轻歌》**14.5 秒快启高能版**，支持 **四大主流 AI 桌面端同时独立监听并发播放**、**A / B / C 三套演出方案一键切换**、以及 **实时自定义思源宋体台词字幕**（默认台词：`拯救世界的事，就交给我吧……`），**全程不修改任何软件本体文件**。
+
+### 支持的桌面客户端（单托盘同时监听，可分别勾选开关）
+- **Google Antigravity**（`Antigravity.exe` + 官方左侧 Plugins 栏内置 MCP App 插件）
+- **DeepSeek Harness**（`DeepSeek Harness.exe` / `dsh-desktop`）
+- **Claude Desktop**（`claude.exe`，自动过滤非主窗口小窗）
+- **OpenAI Codex / ChatGPT Desktop**（`Codex.exe` / `ChatGPT.exe`）
 
 ---
 
@@ -54,10 +60,9 @@ timeline
 
 ### 方式零：傻瓜版免编译压缩包（推荐发给朋友，解压即用）
 
-前往本仓库 **[Releases 页面](https://github.com/Fantasicrap/Aemeath-Antigravity-Boot-Animation/releases)** 下载最新 **`爱弥斯开机动画_傻瓜版_v1.1.zip`**，解压后：
-- 双击 **`1_点我试玩(自动检测窗口).cmd`** 自动在已打开的 Antigravity / DeepSeek Harness 上立即体验；
-- 双击 **`1b_点我试玩_DeepSeekHarness.cmd`** 专门在 DeepSeek Harness 窗口上试播；
-- 双击 **`2_点我安装(开机自启).cmd`** 设为每次启动 Antigravity 或 DeepSeek Harness 自动播放；
+前往本仓库 **[Releases 页面](https://github.com/Fantasicrap/Aemeath-Antigravity-Boot-Animation/releases)** 下载最新 **`爱弥斯开机动画_全平台AI傻瓜版_v1.2.zip`**，解压后：
+- 双击 **`1_点我试玩(自动检测所有AI窗口).cmd`** 自动在当前已打开的 Antigravity / DeepSeek Harness / Claude / Codex 窗口上立即体验；
+- 双击 **`2_点我安装(开机自启).cmd`** 设为每次打开四大 AI 桌面端自动播放；
 - 双击 **`3_安装Antigravity侧栏插件.cmd`** 一键安装 Antigravity 侧栏插件；
 - 双击 **`4_浏览器直接预览动画.html`** 可直接在浏览器里预览 A/B/C 三套方案。
 
