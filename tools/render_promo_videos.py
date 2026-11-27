@@ -929,24 +929,48 @@ def save_wav(path, stereo_f32):
 
 # ───────────────────────── FRAME COMPOSITOR (16:9 + 9:16) ─────────────────────────
 
-def alpha_blend_bgr(dst_bgr, src_rgba_np, x, y, opacity=1.0):
-    """Fast in-place alpha composite of an RGBA numpy array onto BGR uint8 canvas."""
+def prep_layer(rgba_np):
+    """Pre-crop to tight non-zero alpha bbox and store uint16 BGR + alpha for ultra-fast integer blending."""
+    a = rgba_np[:, :, 3]
+    ys, xs = np.nonzero(a)
+    if len(ys) == 0:
+        return (0, 0, np.zeros((0, 0, 3), np.uint16), np.zeros((0, 0, 1), np.uint16))
+    y0, y1 = int(ys.min()), int(ys.max()) + 1
+    x0, x1 = int(xs.min()), int(xs.max()) + 1
+    sub = rgba_np[y0:y1, x0:x1]
+    bgr = sub[:, :, 2::-1].astype(np.uint16)
+    al = sub[:, :, 3:4].astype(np.uint16)
+    return (x0, y0, bgr, al)
+
+
+def blend_layer_fast(dst_bgr, layer, ox=0, oy=0, opacity=1.0):
+    """Ultra-fast tight-bbox integer alpha blend onto BGR uint8 canvas (~15x faster than float32 full-frame)."""
     if opacity <= 0.002:
         return
+    lx, ly, src_bgr, al = layer
+    sh, sw = src_bgr.shape[:2]
+    if sh == 0 or sw == 0:
+        return
+    x = ox + lx
+    y = oy + ly
     H, W = dst_bgr.shape[:2]
-    sh, sw = src_rgba_np.shape[:2]
     x0, y0 = max(0, x), max(0, y)
     x1, y1 = min(W, x + sw), min(H, y + sh)
     if x0 >= x1 or y0 >= y1:
         return
     sx0, sy0 = x0 - x, y0 - y
     sx1, sy1 = sx0 + (x1 - x0), sy0 + (y1 - y0)
-    patch = src_rgba_np[sy0:sy1, sx0:sx1]
-    a = (patch[:, :, 3:4].astype(np.float32) / 255.0) * opacity
-    # Convert src RGB -> BGR
-    src_bgr = patch[:, :, 2::-1].astype(np.float32)
-    dst_roi = dst_bgr[y0:y1, x0:x1].astype(np.float32)
-    dst_bgr[y0:y1, x0:x1] = np.clip(dst_roi * (1.0 - a) + src_bgr * a, 0, 255).astype(np.uint8)
+    a_roi = al[sy0:sy1, sx0:sx1]
+    if opacity < 0.998:
+        a_roi = (a_roi * int(round(opacity * 256))) >> 8
+    dst_roi = dst_bgr[y0:y1, x0:x1].astype(np.uint16)
+    src_roi = src_bgr[sy0:sy1, sx0:sx1]
+    dst_bgr[y0:y1, x0:x1] = ((dst_roi * (255 - a_roi) + src_roi * a_roi + 127) // 255).astype(np.uint8)
+
+
+def alpha_blend_bgr(dst_bgr, src_rgba_np, x, y, opacity=1.0):
+    """Compat helper (delegates to integer path for speed)."""
+    blend_layer_fast(dst_bgr, prep_layer(src_rgba_np), ox=x, oy=y, opacity=opacity)
 
 
 def apply_camera_zoom_bgr(frame_bgr, cx, cy, zoom, out_w, out_h):
@@ -971,7 +995,7 @@ class PromoComposer:
         self.desktop_bgr = cv2.cvtColor(np.asarray(self.desktop_pil.convert("RGB")), cv2.COLOR_RGB2BGR)
 
         self.cursor_pil, self.cursor_hot = make_win11_cursor(scale=1.18)
-        self.cursor_rgba = np.asarray(self.cursor_pil)
+        self.cursor_layer = prep_layer(np.asarray(self.cursor_pil))
 
         # Pre-render 3 app mockups (BGR + rounded corner mask + window drop shadow)
         self.mockups_bgr = {}
@@ -979,12 +1003,20 @@ class PromoComposer:
             m_pil = build_app_mockup(app, self.icons)
             self.mockups_bgr[app["key"]] = cv2.cvtColor(np.asarray(m_pil.convert("RGB")), cv2.COLOR_RGB2BGR)
 
-        # Rounded corner alpha mask for app window (WIN_W x WIN_H)
+        # Rounded corner alpha mask for app window (WIN_W x WIN_H) + fast corner strips
         mask_pil = Image.new("L", (WIN_W * 2, WIN_H * 2), 0)
         ImageDraw.Draw(mask_pil).rounded_rectangle([0, 0, WIN_W * 2 - 1, WIN_H * 2 - 1], radius=WIN_R * 2, fill=255)
-        self.win_mask_f = (np.asarray(mask_pil.resize((WIN_W, WIN_H), Image.LANCZOS), dtype=np.float32) / 255.0)[..., None]
+        mask_u8 = np.asarray(mask_pil.resize((WIN_W, WIN_H), Image.LANCZOS), dtype=np.uint8)
+        self.win_mask_f = (mask_u8.astype(np.float32) / 255.0)[..., None]
+        self.corner_r = WIN_R + 2
+        self.corner_masks = [
+            mask_u8[: self.corner_r, : self.corner_r, None].astype(np.uint16),
+            mask_u8[: self.corner_r, -self.corner_r :, None].astype(np.uint16),
+            mask_u8[-self.corner_r :, : self.corner_r, None].astype(np.uint16),
+            mask_u8[-self.corner_r :, -self.corner_r :, None].astype(np.uint16),
+        ]
 
-        # Pre-rendered soft window drop shadow (padded by 32px)
+        # Pre-bake desktop WITH static window drop shadow (used on 95% of frames when win_scale == 1.0!)
         self.sh_pad = 32
         sh = Image.new("RGBA", (WIN_W + self.sh_pad * 2, WIN_H + self.sh_pad * 2), (0, 0, 0, 0))
         ImageDraw.Draw(sh).rounded_rectangle(
@@ -993,32 +1025,30 @@ class PromoComposer:
             fill=(0, 0, 0, 175),
         )
         sh = sh.filter(ImageFilter.GaussianBlur(18))
-        self.win_shadow_rgba = np.asarray(sh)
+        self.desktop_shadow_bgr = self.desktop_bgr.copy()
+        blend_layer_fast(self.desktop_shadow_bgr, prep_layer(np.asarray(sh)), ox=WIN_X - self.sh_pad, oy=WIN_Y - self.sh_pad, opacity=1.0)
 
-        # Thin bright 1px window border overlay
-        bdr = Image.new("RGBA", (WIN_W, WIN_H), (0, 0, 0, 0))
-        ImageDraw.Draw(bdr).rounded_rectangle([0, 0, WIN_W - 1, WIN_H - 1], radius=WIN_R, outline=(255, 255, 255, 58), width=2)
-        self.win_border_rgba = np.asarray(bdr)
+        # Pre-cropped tight RGBA layers for ultra-fast compositing
+        self.sub_layer = prep_layer(np.asarray(make_subtitle_layer(WIN_W, WIN_H)))
 
-        # Subtitle RGBA overlay (WIN_W x WIN_H)
-        self.sub_rgba = np.asarray(make_subtitle_layer(WIN_W, WIN_H))
-
-        # Floating Mode Tag pills (top-right inside desktop / above window)
+        # Floating Mode Tag pills
         self.mode_pills = {}
         for app in APPS[:3]:
-            self.mode_pills[app["key"]] = np.asarray(self._make_mode_pill(app))
+            pill_rgba = np.asarray(self._make_mode_pill(app))
+            self.mode_pills[app["key"]] = (pill_rgba.shape[1], prep_layer(pill_rgba))
 
         # Outro cards
-        self.outro_16 = np.asarray(build_outro_card(W16, H16, self.icons, vertical=False))
-        self.outro_9 = np.asarray(build_outro_card(W9, H9, self.icons, vertical=True))
+        self.outro_16 = prep_layer(np.asarray(build_outro_card(W16, H16, self.icons, vertical=False)))
+        self.outro_9 = prep_layer(np.asarray(build_outro_card(W9, H9, self.icons, vertical=True)))
 
-        # Vertical 9:16 top/bottom static chrome overlays (per active app state)
-        self.v9_headers = {"desktop": np.asarray(self._make_v9_header(None))}
+        # Vertical 9:16 top/bottom static chrome overlays (pre-cropped tight bboxes!)
+        self.v9_headers = {"desktop": prep_layer(np.asarray(self._make_v9_header(None)))}
         for app in APPS[:3]:
-            self.v9_headers[app["key"]] = np.asarray(self._make_v9_header(app))
+            self.v9_headers[app["key"]] = prep_layer(np.asarray(self._make_v9_header(app)))
         self.v9_dock_cache = {}
         for active_k in (None, "deepseek", "antigravity", "codex"):
-            self.v9_dock_cache[active_k] = np.asarray(self._make_v9_dock(active_k))
+            self.v9_dock_cache[active_k] = prep_layer(np.asarray(self._make_v9_dock(active_k)))
+        self.v9_base_tint = np.full((H9, W9, 3), (18, 9, 11), dtype=np.uint8)
 
     def _make_mode_pill(self, app):
         f_txt = load_font(FONT_SANS, 20, weight=600)
@@ -1118,7 +1148,11 @@ class PromoComposer:
           - flash_alpha: float 0..1 (optional brief white/pink flash on beat cut)
           - pill_alpha: float 0..1
         """
-        frame = self.desktop_bgr.copy()
+        app = state.get("active_app")
+        win_alpha = state.get("win_alpha", 0.0)
+        win_scale = state.get("win_scale", 1.0)
+        is_full_win = (app is not None and win_alpha >= 0.995 and abs(win_scale - 1.0) < 0.003)
+        frame = self.desktop_shadow_bgr.copy() if is_full_win else self.desktop_bgr.copy()
 
         # 1. Desktop icon hover / selected box + click ripple
         hover_row = state.get("hover_row")
@@ -1194,26 +1228,35 @@ class PromoComposer:
                 flash_col = np.array([255.0, 232.0, 250.0], np.float32)
                 win_bgr = np.clip(win_bgr.astype(np.float32) * (1.0 - fl * 0.35) + flash_col * (fl * 0.72), 0, 255).astype(np.uint8)
 
-            # Live 思源宋体 subtitle overlay
+            # Live 思源宋体 subtitle overlay (tight bbox integer blend!)
             sub_a = state.get("sub_alpha", 0.0)
             if sub_a > 0.01:
-                alpha_blend_bgr(win_bgr, self.sub_rgba, 0, 0, opacity=sub_a)
+                blend_layer_fast(win_bgr, self.sub_layer, 0, 0, opacity=sub_a)
 
-            # Thin bright Windows 11 window border
-            alpha_blend_bgr(win_bgr, self.win_border_rgba, 0, 0, opacity=1.0)
+            # Fast subtle bright border edge (4 thin 1px lines inside window, avoids full-frame blend)
+            cv2.rectangle(win_bgr, (0, 0), (WIN_W - 1, WIN_H - 1), (86, 86, 98), 1)
 
             # Composite window with scale-in spring + drop shadow onto desktop
-            if abs(win_scale - 1.0) < 0.003 and win_alpha >= 0.995:
-                alpha_blend_bgr(frame, self.win_shadow_rgba, WIN_X - self.sh_pad, WIN_Y - self.sh_pad, opacity=1.0)
-                roi = frame[WIN_Y : WIN_Y + WIN_H, WIN_X : WIN_X + WIN_W].astype(np.float32)
-                m = self.win_mask_f
-                frame[WIN_Y : WIN_Y + WIN_H, WIN_X : WIN_X + WIN_W] = np.clip(
-                    roi * (1.0 - m) + win_bgr.astype(np.float32) * m, 0, 255
-                ).astype(np.uint8)
+            if is_full_win:
+                # Save 4 tiny corner patches from desktop before direct memcpy of the 1536x864 body!
+                cr = self.corner_r
+                c_tl = frame[WIN_Y : WIN_Y + cr, WIN_X : WIN_X + cr].astype(np.uint16)
+                c_tr = frame[WIN_Y : WIN_Y + cr, WIN_X + WIN_W - cr : WIN_X + WIN_W].astype(np.uint16)
+                c_bl = frame[WIN_Y + WIN_H - cr : WIN_Y + WIN_H, WIN_X : WIN_X + cr].astype(np.uint16)
+                c_br = frame[WIN_Y + WIN_H - cr : WIN_Y + WIN_H, WIN_X + WIN_W - cr : WIN_X + WIN_W].astype(np.uint16)
+                frame[WIN_Y : WIN_Y + WIN_H, WIN_X : WIN_X + WIN_W] = win_bgr
+                # Blend only the 4 tiny 16x16 rounded corners!
+                for (ry, rx, bg_c, mk) in (
+                    (WIN_Y, WIN_X, c_tl, self.corner_masks[0]),
+                    (WIN_Y, WIN_X + WIN_W - cr, c_tr, self.corner_masks[1]),
+                    (WIN_Y + WIN_H - cr, WIN_X, c_bl, self.corner_masks[2]),
+                    (WIN_Y + WIN_H - cr, WIN_X + WIN_W - cr, c_br, self.corner_masks[3]),
+                ):
+                    fg_c = frame[ry : ry + cr, rx : rx + cr].astype(np.uint16)
+                    frame[ry : ry + cr, rx : rx + cr] = ((bg_c * (255 - mk) + fg_c * mk + 127) // 255).astype(np.uint8)
             else:
                 sw = max(32, int(round(WIN_W * win_scale)))
                 sh = max(24, int(round(WIN_H * win_scale)))
-                # Origin interpolates from icon center toward final window center!
                 cx_t = WIN_X + WIN_W * 0.5
                 cy_t = WIN_Y + WIN_H * 0.5
                 origin_k = clamp((win_scale - 0.15) / 0.85)
@@ -1224,16 +1267,15 @@ class PromoComposer:
 
                 win_s = cv2.resize(win_bgr, (sw, sh), interpolation=cv2.INTER_LINEAR)
                 mask_s = cv2.resize(self.win_mask_f[:, :, 0], (sw, sh), interpolation=cv2.INTER_LINEAR) * win_alpha
-                # Clip to frame
                 x0, y0 = max(0, wx), max(0, wy)
                 x1, y1 = min(W16, wx + sw), min(H16, wy + sh)
                 if x0 < x1 and y0 < y1:
                     sx0, sy0 = x0 - wx, y0 - wy
                     sx1, sy1 = sx0 + (x1 - x0), sy0 + (y1 - y0)
-                    m_roi = mask_s[sy0:sy1, sx0:sx1, None]
-                    dst = frame[y0:y1, x0:x1].astype(np.float32)
-                    src = win_s[sy0:sy1, sx0:sx1].astype(np.float32)
-                    frame[y0:y1, x0:x1] = np.clip(dst * (1.0 - m_roi) + src * m_roi, 0, 255).astype(np.uint8)
+                    m_roi = (mask_s[sy0:sy1, sx0:sx1, None] * 255.0).astype(np.uint16)
+                    dst = frame[y0:y1, x0:x1].astype(np.uint16)
+                    src = win_s[sy0:sy1, sx0:sx1].astype(np.uint16)
+                    frame[y0:y1, x0:x1] = ((dst * (255 - m_roi) + src * m_roi + 127) // 255).astype(np.uint8)
 
             # Note: Floating Mode Pill is composited exclusively in compose_16_9 (9:16 has its own top badge!)
 
@@ -1242,7 +1284,7 @@ class PromoComposer:
         if cur is not None:
             cx = int(round(cur[0])) - self.cursor_hot[0]
             cy = int(round(cur[1])) - self.cursor_hot[1]
-            alpha_blend_bgr(frame, self.cursor_rgba, cx, cy, opacity=1.0)
+            blend_layer_fast(frame, self.cursor_layer, cx, cy, opacity=1.0)
 
         return frame
 
@@ -1257,49 +1299,44 @@ class PromoComposer:
         app = state.get("active_app")
         pa = state.get("pill_alpha", 0.0) * state.get("win_alpha", 0.0)
         if app is not None and pa > 0.01:
-            pill = self.mode_pills[app["key"]]
-            px = W16 - pill.shape[1] - 36
+            pw, pill_layer = self.mode_pills[app["key"]]
+            px = W16 - pw - 36
             py = 18
-            alpha_blend_bgr(out, pill, px, py, opacity=pa)
+            blend_layer_fast(out, pill_layer, px, py, opacity=pa)
 
         oa = state.get("outro_alpha", 0.0)
         if oa > 0.005:
-            # Soft glowing cosmic Mode C background bokeh behind Outro Card
-            bg_c = cv2.resize(self.cache.loop_at("c", state.get("outro_t", 0.0)), (W16, H16), interpolation=cv2.INTER_LINEAR)
-            bg_c = cv2.GaussianBlur(bg_c, (0, 0), 14)
-            bg_c = (bg_c.astype(np.float32) * 0.45).astype(np.uint8)
+            bg_c = cv2.resize(self.cache.loop_at("c", state.get("outro_t", 0.0)), (W16 // 4, H16 // 4), interpolation=cv2.INTER_AREA)
+            bg_c = cv2.GaussianBlur(bg_c, (0, 0), 4)
+            bg_c = cv2.resize(bg_c, (W16, H16), interpolation=cv2.INTER_LINEAR)
+            bg_c = (bg_c.astype(np.uint16) * 115 >> 8).astype(np.uint8)
             out = cv2.addWeighted(bg_c, oa, out, 1.0 - oa, 0)
-            alpha_blend_bgr(out, self.outro_16, 0, 0, opacity=oa)
+            blend_layer_fast(out, self.outro_16, 0, 0, opacity=oa)
         return out
 
     def compose_9_16(self, desktop_bgr, state, audio_level=0.0):
         """Bespoke 1080x1920 Douyin vertical showcase with 100%-uncropped 16:10 hero viewport + top title + dock + live bars."""
-        # 1. Ambient blurred background infused with live scene colors
         small = cv2.resize(desktop_bgr, (90, 160), interpolation=cv2.INTER_AREA)
         blur = cv2.GaussianBlur(small, (0, 0), 9)
         bg = cv2.resize(blur, (W9, H9), interpolation=cv2.INTER_LINEAR)
-        canvas = (bg.astype(np.float32) * 0.24 + np.array([18.0, 9.0, 11.0], np.float32)).clip(0, 255).astype(np.uint8)
+        canvas = cv2.addWeighted(bg, 0.24, self.v9_base_tint, 1.0, 0)
 
         oa = state.get("outro_alpha", 0.0)
         if oa < 0.995:
-            # 2. Center Hero Stage Viewport (1024 x 640 = 16:10 so the entire 1536x864 window fits 100% uncropped!)
             vw, vh = 1024, 640
             vx = (W9 - vw) // 2
             vy = 492
             vcx, vcy, vz = state.get("cam9", (W16 * 0.5, H16 * 0.5, 1.22))
             view = apply_camera_zoom_bgr(desktop_bgr, vcx, vcy, vz, vw, vh)
 
-            # Soft glowing border around center viewport
             app = state.get("active_app")
             acc = app["accent"] if (app is not None and state.get("win_alpha", 0.0) > 0.15) else (120, 210, 255)
             cv2.rectangle(canvas, (vx - 4, vy - 4), (vx + vw + 4, vy + vh + 4), (acc[2], acc[1], acc[0]), 4, cv2.LINE_AA)
             canvas[vy : vy + vh, vx : vx + vw] = view
 
-            # 3. Top Header
             hdr_key = app["key"] if (app is not None and state.get("win_alpha", 0.0) > 0.15) else "desktop"
-            alpha_blend_bgr(canvas, self.v9_headers[hdr_key], 0, 24, opacity=1.0)
+            blend_layer_fast(canvas, self.v9_headers[hdr_key], 0, 24, opacity=1.0)
 
-            # 4. Live Audio Equalizer Bars between viewport & dock (y=1185..1255)
             n_bars = 29
             bar_w = 14
             gap = 14
@@ -1320,16 +1357,16 @@ class PromoComposer:
                 b = int(202 * (1 - u) + 255 * u)
                 cv2.rectangle(canvas, (bx, by), (bx + bar_w, by + bh), (b, g, r), -1)
 
-            # 5. Bottom 4-AI Dock (centered nicely above Douyin caption safe area)
             act_k = app["key"] if (app is not None and state.get("win_alpha", 0.0) > 0.15) else None
-            alpha_blend_bgr(canvas, self.v9_dock_cache[act_k], 0, 1280, opacity=1.0)
+            blend_layer_fast(canvas, self.v9_dock_cache[act_k], 0, 1280, opacity=1.0)
 
         if oa > 0.005:
-            bg_c = cv2.resize(self.cache.loop_at("c", state.get("outro_t", 0.0)), (W9, H9), interpolation=cv2.INTER_LINEAR)
-            bg_c = cv2.GaussianBlur(bg_c, (0, 0), 16)
-            bg_c = (bg_c.astype(np.float32) * 0.42).astype(np.uint8)
+            bg_c = cv2.resize(self.cache.loop_at("c", state.get("outro_t", 0.0)), (W9 // 4, H9 // 4), interpolation=cv2.INTER_AREA)
+            bg_c = cv2.GaussianBlur(bg_c, (0, 0), 5)
+            bg_c = cv2.resize(bg_c, (W9, H9), interpolation=cv2.INTER_LINEAR)
+            bg_c = (bg_c.astype(np.uint16) * 108 >> 8).astype(np.uint8)
             canvas = cv2.addWeighted(bg_c, oa, canvas, 1.0 - oa, 0)
-            alpha_blend_bgr(canvas, self.outro_9, 0, 0, opacity=oa)
+            blend_layer_fast(canvas, self.outro_9, 0, 0, opacity=oa)
 
         return canvas
 
@@ -1735,8 +1772,8 @@ def render_edit(ffmpeg_bin, composer, edit_name, dur_sec, timeline_fn, audio_buf
         f9 = composer.compose_9_16(desk, st, audio_level=smooth_rms)
         p16.stdin.write(f16.tobytes())
         p9.stdin.write(f9.tobytes())
-        if (fi + 1) % 150 == 0 or fi == n_frames - 1:
-            print(f"  {edit_name}: {fi + 1}/{n_frames} frames ({time.time() - t0:.1f}s)")
+        if (fi + 1) % 60 == 0 or fi == n_frames - 1:
+            print(f"  {edit_name}: {fi + 1}/{n_frames} frames ({time.time() - t0:.1f}s)", flush=True)
 
     p16.stdin.close()
     p9.stdin.close()
