@@ -1,7 +1,8 @@
 // 爱弥斯开机动画（《鸣潮》Aemeath · 飞行雪绒）· Windows 版 —— 外置浮层小程序
+// 同时支持 Antigravity 与 DeepSeek Harness 双桌面端自动监听与独立叠加播放！
 // 支持 A / B / C 三套演出方案自由切换，支持自定义开屏台词字幕（默认：拯救世界的事，就交给我吧……）。
-// 检测 Antigravity 启动 → 盖在主窗口上播放 14.5s《于电子星海轻歌》快启开屏动画 → 五次方丝滑淡出，进入半透明、点击穿透无缝循环背景。
-// 不修改 Antigravity 任何本体文件。使用系统自带 .NET Framework 4.x 编译器直编（C# 5 语法），无需安装任何 SDK。
+// 检测目标窗口启动 → 盖在其主窗口上播放 14.5s《于电子星海轻歌》快启开屏动画 → 五次方丝滑淡出，进入半透明、点击穿透无缝循环背景。
+// 不修改 Antigravity / DeepSeek Harness 任何本体文件。使用系统自带 .NET Framework 4.x 编译器直编（C# 5 语法），无需安装任何 SDK。
 //
 // Based on wynneceles/ai-boot-animations & xxjj2024/Roxy-Antigravity-Boot-Animation (GNU GPL v3)
 // This program is free software under the GNU General Public License v3.
@@ -44,14 +45,16 @@ namespace AemeathAntigravityBoot
 
     public class Config
     {
-        public string Mode = "a";                // 演出方案：a = 一镜到底星海觉醒 / b = 双形态隧者机兵 / c = 多幕剧情浓缩
-        public bool PlayIntro = true;            // Antigravity 启动时播放开屏动画
-        public bool LoopBackground = true;       // 开屏后保留半透明循环背景
-        public double FadeStartSeconds = 12.60;  // 14.5s 快启版在 12.60s 高潮收束处启动五次方丝滑淡出
-        public double FadeDurationSeconds = 1.90;// 12.60 + 1.90 = 14.50s，无缝接 loop-x2.mp4
-        public double ResidualAlpha = 0.25;      // 循环背景不透明度
-        public double IntroVolume = 0.85;        // 开屏音量（再乘系统音量）
-        public bool ShowSubtitles = true;        // 动态渲染自定义思源宋体台词，修改即时生效，无需重新渲染 MP4
+        public string Mode = "a";                  // 演出方案：a = 一镜到底星海觉醒 / b = 双形态隧者机兵 / c = 多幕剧情浓缩
+        public bool EnableAntigravity = true;      // 监听 Antigravity.exe
+        public bool EnableDeepSeekHarness = true;  // 监听 DeepSeek Harness.exe
+        public bool PlayIntro = true;              // 启动时播放开屏动画
+        public bool LoopBackground = true;         // 开屏后保留半透明循环背景
+        public double FadeStartSeconds = 12.60;    // 14.5s 快启版在 12.60s 高潮收束处启动五次方丝滑淡出
+        public double FadeDurationSeconds = 1.90;  // 12.60 + 1.90 = 14.50s，无缝接 loop-x2.mp4
+        public double ResidualAlpha = 0.25;        // 循环背景不透明度
+        public double IntroVolume = 0.85;          // 开屏音量（再乘系统音量）
+        public bool ShowSubtitles = true;          // 动态渲染自定义思源宋体台词，修改即时生效，无需重新渲染 MP4
         public double SubtitleFadeSeconds = 0.45;
         public double SubtitleWidthRatio = 0.65;
         public List<Subtitle> Subtitles = new List<Subtitle> {
@@ -72,6 +75,13 @@ namespace AemeathAntigravityBoot
             if (k == "b") return "方案 B · 双形态切换（电子幽灵 × 隧者机兵）";
             if (k == "c") return "方案 C · 多幕剧情（纸飞机 / 祝福 / 拯救 / 远航星）";
             return "方案 A · 一镜到底（电子星海觉醒）";
+        }
+
+        public bool IsTargetEnabled(string appKey)
+        {
+            if (appKey == Finder.AppAntigravity) return EnableAntigravity;
+            if (appKey == Finder.AppDeepSeekHarness) return EnableDeepSeekHarness;
+            return true;
         }
 
         public static string Dir { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AemeathAntigravityBoot"); } }
@@ -104,6 +114,8 @@ namespace AemeathAntigravityBoot
                     if (d != null)
                     {
                         c.Mode = NormalizeMode(S(d, "mode", c.Mode));
+                        c.EnableAntigravity = B(d, "enableAntigravity", c.EnableAntigravity);
+                        c.EnableDeepSeekHarness = B(d, "enableDeepSeekHarness", c.EnableDeepSeekHarness);
                         c.PlayIntro = B(d, "playIntro", c.PlayIntro);
                         c.LoopBackground = B(d, "loopBackground", c.LoopBackground);
                         c.FadeStartSeconds = D(d, "fadeStartSeconds", c.FadeStartSeconds);
@@ -149,6 +161,8 @@ namespace AemeathAntigravityBoot
                 var sb = new StringBuilder();
                 sb.Append("{\n");
                 sb.Append("  \"mode\" : " + js.Serialize(NormalizeMode(Mode)) + ",\n");
+                sb.Append("  \"enableAntigravity\" : " + L(EnableAntigravity) + ",\n");
+                sb.Append("  \"enableDeepSeekHarness\" : " + L(EnableDeepSeekHarness) + ",\n");
                 sb.Append("  \"fadeDurationSeconds\" : " + N(FadeDurationSeconds) + ",\n");
                 sb.Append("  \"fadeStartSeconds\" : " + N(FadeStartSeconds) + ",\n");
                 sb.Append("  \"introVolume\" : " + N(IntroVolume) + ",\n");
@@ -307,14 +321,46 @@ namespace AemeathAntigravityBoot
         public static string TitleOf(IntPtr h) { var sb = new StringBuilder(512); GetWindowText(h, sb, 512); return sb.ToString(); }
     }
 
-    // ───────────────────────── 查找 Antigravity 主窗口 ─────────────────────────
+    // ───────────────────────── 查找 Antigravity 与 DeepSeek Harness 主窗口 ─────────────────────────
 
-    public struct Target { public IntPtr Hwnd; public uint Pid; public bool Valid { get { return Hwnd != IntPtr.Zero; } } }
+    public struct Target
+    {
+        public IntPtr Hwnd;
+        public uint Pid;
+        public string AppKey;
+        public bool Valid { get { return Hwnd != IntPtr.Zero; } }
+    }
 
     public static class Finder
     {
+        public const string AppAntigravity = "antigravity";
+        public const string AppDeepSeekHarness = "deepseek-harness";
+        public const string AppTest = "test";
+
         public static string TestTitle;
         static readonly Dictionary<uint, string> NameCache = new Dictionary<uint, string>();
+
+        public static string DisplayName(string appKey)
+        {
+            if (appKey == AppDeepSeekHarness) return "DeepSeek Harness";
+            if (appKey == AppAntigravity) return "Antigravity";
+            return appKey ?? "目标窗口";
+        }
+
+        public static string MatchProcess(string procName)
+        {
+            if (string.IsNullOrEmpty(procName)) return null;
+            string p = procName.Trim();
+            if (string.Equals(p, "antigravity", StringComparison.OrdinalIgnoreCase))
+                return AppAntigravity;
+            if (string.Equals(p, "DeepSeek Harness", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(p, "DeepSeek.Harness", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(p, "deepseek-harness", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(p, "DeepSeek.Harness-x64", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(p, "dsh-desktop", StringComparison.OrdinalIgnoreCase))
+                return AppDeepSeekHarness;
+            return null;
+        }
 
         static string ProcName(uint pid)
         {
@@ -326,34 +372,55 @@ namespace AemeathAntigravityBoot
             return n;
         }
 
-        public static Target Find()
+        /// 查找所有已识别且启用的目标应用最大主窗口（可同时返回 Antigravity 和 DeepSeek Harness）
+        public static List<Target> FindAll(Config config, string onlyAppKey)
         {
-            Target best = new Target(); long bestArea = 0;
+            var bestByApp = new Dictionary<string, Target>();
+            var areaByApp = new Dictionary<string, long>();
             uint self = (uint)Process.GetCurrentProcess().Id;
+
             Native.EnumWindows(delegate (IntPtr h, IntPtr l)
             {
                 if (!Native.IsWindowVisible(h) || Native.IsIconic(h) || Native.Cloaked(h)) return true;
                 if (Native.GetWindow(h, Native.GW_OWNER) != IntPtr.Zero) return true;
                 uint pid; Native.GetWindowThreadProcessId(h, out pid);
                 if (pid == self) return true;
+
+                string appKey = null;
                 if (TestTitle != null)
                 {
                     if (Native.TitleOf(h).IndexOf(TestTitle, StringComparison.OrdinalIgnoreCase) < 0) return true;
+                    appKey = AppTest;
                 }
                 else
                 {
-                    string pn = ProcName(pid);
-                    if (!string.Equals(pn, "antigravity", StringComparison.OrdinalIgnoreCase)) return true;
+                    appKey = MatchProcess(ProcName(pid));
+                    if (appKey == null) return true;
+                    if (onlyAppKey != null && !string.Equals(appKey, onlyAppKey, StringComparison.OrdinalIgnoreCase)) return true;
+                    if (onlyAppKey == null && config != null && !config.IsTargetEnabled(appKey)) return true;
                     if (Native.GetWindowTextLength(h) == 0) return true;
                 }
+
                 Native.RECT r; if (!Native.Bounds(h, out r)) return true;
                 int w = r.Right - r.Left, ht = r.Bottom - r.Top;
                 if (w < 400 || ht < 300) return true;
                 long area = (long)w * ht;
-                if (area > bestArea) { bestArea = area; best.Hwnd = h; best.Pid = pid; }
+                long curBest;
+                if (!areaByApp.TryGetValue(appKey, out curBest) || area > curBest)
+                {
+                    areaByApp[appKey] = area;
+                    bestByApp[appKey] = new Target { Hwnd = h, Pid = pid, AppKey = appKey };
+                }
                 return true;
             }, IntPtr.Zero);
-            return best;
+
+            return new List<Target>(bestByApp.Values);
+        }
+
+        public static Target FindOne(string appKey)
+        {
+            var list = FindAll(null, appKey);
+            return list.Count > 0 ? list[0] : new Target();
         }
     }
 
@@ -440,7 +507,7 @@ namespace AemeathAntigravityBoot
         public static double HeartbeatSec = 600;
     }
 
-    // ───────────────────────── 一次播放 ─────────────────────────
+    // ───────────────────────── 单个目标窗口的一次播放 ─────────────────────────
 
     public class Show
     {
@@ -507,7 +574,7 @@ namespace AemeathAntigravityBoot
             overlapLoop = !ForceLegacyLoop && File.Exists(x2)
                 && !(File.Exists(single) && File.GetLastWriteTimeUtc(single) > File.GetLastWriteTimeUtc(x2).AddSeconds(2));
             loopFile = overlapLoop ? "loop-x2.mp4" : "loop.mp4";
-            Log.W("模式=" + ActiveMode + "，" + (overlapLoop ? "循环段：重叠交接（loop-x2.mp4）" : "循环段：放完再接（loop.mp4）"));
+            Log.W("目标=" + Finder.DisplayName(t.AppKey) + " 模式=" + ActiveMode + "，" + (overlapLoop ? "重叠交接（loop-x2.mp4）" : "放完再接（loop.mp4）"));
             loopA = MakeLoopPlayer();
             loopB = MakeLoopPlayer();
             Panel.SetZIndex(loopA, 1); Panel.SetZIndex(loopB, 0);
@@ -531,7 +598,7 @@ namespace AemeathAntigravityBoot
             {
                 WindowStyle = WindowStyle.None, AllowsTransparency = true, ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false,
                 ShowActivated = false, Background = Brushes.Transparent, Content = root,
-                Left = -32000, Top = -32000, Width = 10, Height = 10, Title = "Aemeath Boot Animation"
+                Left = -32000, Top = -32000, Width = 10, Height = 10, Title = "Aemeath Boot Animation (" + Finder.DisplayName(t.AppKey) + ")"
             };
             clickThrough = !withIntro;
             alpha = 0;
@@ -578,14 +645,14 @@ namespace AemeathAntigravityBoot
             {
                 introStartWait = DateTime.Now;
                 intro.Play();
-                Log.W("准备播放爱弥斯开屏（模式 " + ActiveMode + "），窗口 " + Target.Hwnd + " " + RectStr(lastRect));
+                Log.W("播放爱弥斯开屏（" + Finder.DisplayName(t.AppKey) + " / 模式 " + ActiveMode + "），窗口 " + Target.Hwnd + " " + RectStr(lastRect));
             }
             else
             {
                 loopA.Play();
                 phase = Phase.Revealed;
                 RampAlpha(config.ResidualAlpha, config.FadeDurationSeconds, null);
-                Log.W("直接开启爱弥斯循环背景（模式 " + ActiveMode + "），窗口 " + Target.Hwnd);
+                Log.W("开启爱弥斯循环背景（" + Finder.DisplayName(t.AppKey) + " / 模式 " + ActiveMode + "），窗口 " + Target.Hwnd);
             }
 
             disp = Dispatcher.CurrentDispatcher;
@@ -960,7 +1027,6 @@ namespace AemeathAntigravityBoot
         void SetAlpha(double a) { alpha = Math.Max(0, Math.Min(1, a)); grid.Opacity = alpha; }
         void RampAlpha(double to, double seconds, Action then) { alphaFrom = alpha; alphaTo = to; alphaT0 = DateTime.Now; alphaDur = Math.Max(0, seconds); alphaThen = then; }
         void RampVolume(double to, double seconds) { if (intro == null) return; volFrom = intro.Volume; volTo = to; volT0 = DateTime.Now; volDur = seconds; }
-        void SetClickThrough(IntPtr h) { if (h != IntPtr.Zero) Native.SetLong(h, Native.GWL_EXSTYLE, Native.GetLong(h, Native.GWL_EXSTYLE) | Native.WS_EX_TRANSPARENT); }
 
         void UpdateSubtitle(double t)
         {
@@ -1084,13 +1150,13 @@ namespace AemeathAntigravityBoot
         }
     }
 
-    // ───────────────────────── 设置窗口（含 A/B/C 方案切换 & 自定义台词）─────────────────────────
+    // ───────────────────────── 设置窗口（双桌面端支持 + A/B/C 切换 + 自定义台词）─────────────────────────
 
     public class SettingsWindow : Window
     {
         readonly App app;
         RadioButton modeA, modeB, modeC;
-        CheckBox introBox, loopBox, subBox;
+        CheckBox appAgBox, appDshBox, introBox, loopBox, subBox;
         TextBox subMainBox, subSecBox;
         Slider alphaSlider, volSlider;
         TextBlock alphaVal, volVal;
@@ -1099,51 +1165,63 @@ namespace AemeathAntigravityBoot
         public SettingsWindow(App app)
         {
             this.app = app;
-            Title = "爱弥斯开机动画 · 设置";
-            Width = 468; SizeToContent = SizeToContent.Height; ResizeMode = ResizeMode.NoResize;
+            Title = "爱弥斯开机动画 · 设置（Antigravity / DeepSeek Harness）";
+            Width = 486; SizeToContent = SizeToContent.Height; ResizeMode = ResizeMode.NoResize;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             FontFamily = new FontFamily("Microsoft YaHei UI"); FontSize = 13;
-            var sp = new StackPanel { Margin = new Thickness(22, 16, 22, 18) };
+            var sp = new StackPanel { Margin = new Thickness(22, 14, 22, 18) };
+
+            sp.Children.Add(Header("监听的目标桌面端（可同时勾选，互不干扰）"));
+            var appRow = new WrapPanel { Margin = new Thickness(0, 6, 0, 4) };
+            appAgBox = new CheckBox { Content = "Antigravity", Margin = new Thickness(0, 0, 22, 4) };
+            appDshBox = new CheckBox { Content = "DeepSeek Harness", Margin = new Thickness(0, 0, 12, 4) };
+            appAgBox.Click += delegate { Changed(); };
+            appDshBox.Click += delegate { Changed(); };
+            appRow.Children.Add(appAgBox); appRow.Children.Add(appDshBox);
+            sp.Children.Add(appRow);
 
             sp.Children.Add(Header("选择开场演出方案（14.5s《于电子星海轻歌》）"));
-            modeA = new RadioButton { GroupName = "Mode", Content = "方案 A · 一镜到底（粉金线稿 → 霓虹 → 故障睁眼 → 星芒光翼）", Margin = new Thickness(0, 6, 0, 4) };
-            modeB = new RadioButton { GroupName = "Mode", Content = "方案 B · 双形态切换（飞行雪绒轻歌 → 故障撕裂 → 隧者机兵觉醒）", Margin = new Thickness(0, 4, 0, 4) };
-            modeC = new RadioButton { GroupName = "Mode", Content = "方案 C · 多幕剧情（纸飞机 → 祝福微笑 → 拯救共鸣 → 远航星守望）", Margin = new Thickness(0, 4, 0, 8) };
+            modeA = new RadioButton { GroupName = "Mode", Content = "方案 A · 一镜到底（官方星海睁眼觉醒 → 纯白光翼）", Margin = new Thickness(0, 6, 0, 4) };
+            modeB = new RadioButton { GroupName = "Mode", Content = "方案 B · 双形态切换（飞行雪绒轻歌 → 故障撕裂 → 隧者机兵）", Margin = new Thickness(0, 4, 0, 4) };
+            modeC = new RadioButton { GroupName = "Mode", Content = "方案 C · 多幕剧情（纸飞机 → 祝福微笑 → 拯救共鸣 → 远航星守望）", Margin = new Thickness(0, 4, 0, 6) };
             modeA.Checked += delegate { if (!loading) ModeChanged("a"); };
             modeB.Checked += delegate { if (!loading) ModeChanged("b"); };
             modeC.Checked += delegate { if (!loading) ModeChanged("c"); };
             sp.Children.Add(modeA); sp.Children.Add(modeB); sp.Children.Add(modeC);
 
             sp.Children.Add(Header("自定义开屏台词字幕（即时生效）"));
-            subBox = new CheckBox { Content = "显示开屏思源宋体台词", Margin = new Thickness(0, 6, 0, 6) };
+            subBox = new CheckBox { Content = "显示开屏思源宋体台词", Margin = new Thickness(0, 6, 0, 5) };
             subBox.Click += delegate { Changed(); };
             sp.Children.Add(subBox);
             sp.Children.Add(new TextBlock { Text = "主台词（默认：拯救世界的事，就交给我吧……）", Foreground = Brushes.DimGray, FontSize = 11.5 });
-            subMainBox = new TextBox { Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 3, 0, 6) };
-            subSecBox = new TextBox { Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 3, 0, 8) };
+            subMainBox = new TextBox { Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 3, 0, 5) };
+            subSecBox = new TextBox { Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 3, 0, 6) };
             subMainBox.TextChanged += delegate { if (!loading) Changed(); };
             subSecBox.TextChanged += delegate { if (!loading) Changed(); };
             sp.Children.Add(subMainBox);
             sp.Children.Add(new TextBlock { Text = "副台词（选填，留空则只显示主台词）", Foreground = Brushes.DimGray, FontSize = 11.5 });
             sp.Children.Add(subSecBox);
 
-            sp.Children.Add(Header("打开 Antigravity 时"));
-            introBox = new CheckBox { Content = "播放开屏动画", Margin = new Thickness(0, 6, 0, 4) };
-            loopBox = new CheckBox { Content = "保留循环背景（半透明，点击穿透）", Margin = new Thickness(0, 4, 0, 4) };
+            sp.Children.Add(Header("打开应用时"));
+            var optRow = new WrapPanel { Margin = new Thickness(0, 6, 0, 2) };
+            introBox = new CheckBox { Content = "播放开屏动画", Margin = new Thickness(0, 0, 18, 4) };
+            loopBox = new CheckBox { Content = "保留半透明循环背景（点击穿透）", Margin = new Thickness(0, 0, 0, 4) };
             introBox.Click += delegate { Changed(); };
             loopBox.Click += delegate { Changed(); };
-            sp.Children.Add(introBox); sp.Children.Add(loopBox);
+            optRow.Children.Add(introBox); optRow.Children.Add(loopBox);
+            sp.Children.Add(optRow);
 
             alphaSlider = MakeSlider(sp, "背景不透明度", 0.8, out alphaVal);
             volSlider = MakeSlider(sp, "开屏音量（再乘系统音量）", 1, out volVal);
 
-            sp.Children.Add(Header("现在，在 Antigravity 窗口上"));
+            sp.Children.Add(Header("立即在已打开的窗口上播放"));
             var row = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
-            row.Children.Add(Btn("播放一次开屏动画", delegate { app.PreviewIntro(); }));
-            row.Children.Add(Btn("开启循环背景", delegate { app.PreviewLoop(); }));
-            row.Children.Add(Btn("关掉", delegate { app.StopShow(); }));
+            row.Children.Add(Btn("在 Antigravity 播放", delegate { app.PreviewIntro(Finder.AppAntigravity); }));
+            row.Children.Add(Btn("在 DeepSeek Harness 播放", delegate { app.PreviewIntro(Finder.AppDeepSeekHarness); }));
+            row.Children.Add(Btn("开启循环背景", delegate { app.PreviewLoop(null); }));
+            row.Children.Add(Btn("全部关掉", delegate { app.StopAllShows(); }));
             sp.Children.Add(row);
-            var row2 = new WrapPanel { Margin = new Thickness(0, 10, 0, 0) };
+            var row2 = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
             row2.Children.Add(Btn("恢复默认台词", delegate
             {
                 subMainBox.Text = "拯救世界的事，就交给我吧……";
@@ -1166,13 +1244,13 @@ namespace AemeathAntigravityBoot
         }
         Slider MakeSlider(StackPanel sp, string title, double max, out TextBlock val)
         {
-            var g = new DockPanel { Margin = new Thickness(0, 6, 0, 0) };
+            var g = new DockPanel { Margin = new Thickness(0, 5, 0, 0) };
             var v = new TextBlock { Width = 44, TextAlignment = TextAlignment.Right };
             DockPanel.SetDock(v, Dock.Right);
             g.Children.Add(v);
             g.Children.Add(new TextBlock { Text = title });
             sp.Children.Add(g);
-            var s = new Slider { Minimum = 0, Maximum = max, Margin = new Thickness(0, 4, 0, 6), IsMoveToPointEnabled = true };
+            var s = new Slider { Minimum = 0, Maximum = max, Margin = new Thickness(0, 3, 0, 5), IsMoveToPointEnabled = true };
             s.ValueChanged += delegate { v.Text = Math.Round(s.Value * 100) + "%"; if (!loading) Changed(); };
             sp.Children.Add(s);
             val = v;
@@ -1183,6 +1261,8 @@ namespace AemeathAntigravityBoot
         {
             loading = true;
             var c = app.Config;
+            appAgBox.IsChecked = c.EnableAntigravity;
+            appDshBox.IsChecked = c.EnableDeepSeekHarness;
             string m = Config.NormalizeMode(c.Mode);
             modeA.IsChecked = (m == "a");
             modeB.IsChecked = (m == "b");
@@ -1210,6 +1290,8 @@ namespace AemeathAntigravityBoot
             if (loading) return;
             app.Update(delegate (Config c)
             {
+                c.EnableAntigravity = appAgBox.IsChecked == true;
+                c.EnableDeepSeekHarness = appDshBox.IsChecked == true;
                 c.PlayIntro = introBox.IsChecked == true;
                 c.LoopBackground = loopBox.IsChecked == true;
                 c.ShowSubtitles = subBox.IsChecked == true;
@@ -1226,15 +1308,15 @@ namespace AemeathAntigravityBoot
         }
     }
 
-    // ───────────────────────── 主程序 ─────────────────────────
+    // ───────────────────────── 主程序（支持多应用并发浮层管理）─────────────────────────
 
     public class App : Application
     {
         public static string AssetsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets");
         public Config Config;
-        Show show;
+        readonly Dictionary<string, Show> shows = new Dictionary<string, Show>();
         WF.NotifyIcon tray;
-        WF.ToolStripMenuItem introItem, loopItem, stopItem, modeAItem, modeBItem, modeCItem;
+        WF.ToolStripMenuItem agItem, dshItem, introItem, loopItem, stopItem, modeAItem, modeBItem, modeCItem;
         WF.ToolStripLabel alphaLabel, volLabel;
         WF.TrackBar alphaBar, volBar;
         SettingsWindow settings;
@@ -1272,16 +1354,20 @@ namespace AemeathAntigravityBoot
             Dev.StallTestSec = ArgD("--stall-test", Dev.StallTestSec);
             Dev.RecycleEvery = (int)ArgD("--recycle-every", Dev.RecycleEvery);
             Dev.HeartbeatSec = ArgD("--heartbeat", Dev.HeartbeatSec);
-            Log.W("启动 " + string.Join(" ", args) + "  模式=" + Config.Mode);
+            Log.W("启动 " + string.Join(" ", args) + "  模式=" + Config.Mode + " AG=" + Config.EnableAntigravity + " DSH=" + Config.EnableDeepSeekHarness);
 
             if (Arg("--render-subtitle") != null) { RenderSubtitleTest(); return; }
 
             SetupTray();
             if (Has("--settings")) OpenSettings();
 
-            var t0 = Finder.Find();
-            if (t0.Valid && !testMode) seenPids.Add(t0.Pid);
-            if (Has("--play-now")) PreviewIntro();
+            var initialTargets = Finder.FindAll(Config, null);
+            if (!testMode)
+                foreach (var t0 in initialTargets) seenPids.Add(t0.Pid);
+
+            string playApp = Arg("--play-app");
+            if (!string.IsNullOrEmpty(playApp)) PreviewIntro(playApp);
+            else if (Has("--play-now")) PreviewIntro(null);
 
             watch = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
             watch.Tick += delegate { Watch(); };
@@ -1309,40 +1395,64 @@ namespace AemeathAntigravityBoot
 
         void Watch()
         {
-            var t = Finder.Find();
-            if (!t.Valid || seenPids.Contains(t.Pid)) return;
-            seenPids.Add(t.Pid);
             if (testMode) return;
-            Config = Config.Load();
-            if (!Config.PlayIntro && !Config.LoopBackground) return;
-            Start(t, Config.PlayIntro);
+            var targets = Finder.FindAll(Config, null);
+            if (targets.Count == 0) return;
+            foreach (var t in targets)
+            {
+                if (seenPids.Contains(t.Pid)) continue;
+                seenPids.Add(t.Pid);
+                Config = Config.Load();
+                if (!Config.IsTargetEnabled(t.AppKey)) continue;
+                if (!Config.PlayIntro && !Config.LoopBackground) continue;
+                Start(t, Config.PlayIntro);
+            }
         }
 
         void Start(Target t, bool withIntro)
         {
-            if (show != null) show.Teardown();
+            string key = t.AppKey ?? Finder.AppAntigravity;
+            Show prev;
+            if (shows.TryGetValue(key, out prev) && prev != null) prev.Teardown();
             Show s = null;
-            s = new Show(t, Config, withIntro, delegate { if (show == s) show = null; RefreshMenu(); });
-            show = s;
+            s = new Show(t, Config, withIntro, delegate
+            {
+                Show cur;
+                if (shows.TryGetValue(key, out cur) && cur == s) shows.Remove(key);
+                RefreshMenu();
+            });
+            shows[key] = s;
             RefreshMenu();
         }
 
-        bool StartOnCurrent(bool withIntro)
+        bool StartOnCurrent(bool withIntro, string onlyAppKey)
         {
-            var t = Finder.Find();
-            if (!t.Valid)
+            var targets = onlyAppKey != null ? Finder.FindAll(null, onlyAppKey) : Finder.FindAll(Config, null);
+            if (targets.Count == 0 && onlyAppKey == null)
+                targets = Finder.FindAll(null, null); // 若全部勾选窗口没开，也兜底找任意已开支持窗口
+            if (targets.Count == 0)
             {
-                if (tray != null) tray.ShowBalloonTip(3000, "爱弥斯开机动画", "没找到 Antigravity 窗口，先把 Antigravity 打开吧。", WF.ToolTipIcon.Info);
+                string who = onlyAppKey != null ? Finder.DisplayName(onlyAppKey) : "Antigravity 或 DeepSeek Harness";
+                if (tray != null) tray.ShowBalloonTip(3000, "爱弥斯开机动画", "没找到 " + who + " 窗口，请先把应用打开吧。", WF.ToolTipIcon.Info);
                 return false;
             }
-            seenPids.Add(t.Pid);
-            Start(t, withIntro);
+            foreach (var t in targets)
+            {
+                seenPids.Add(t.Pid);
+                Start(t, withIntro);
+            }
             return true;
         }
 
-        public void PreviewIntro() { StartOnCurrent(true); }
-        public void PreviewLoop() { StartOnCurrent(false); }
-        public void StopShow() { if (show != null) show.Finish(true); }
+        public void PreviewIntro(string appKey) { StartOnCurrent(true, appKey); }
+        public void PreviewLoop(string appKey) { StartOnCurrent(false, appKey); }
+
+        public void StopAllShows()
+        {
+            foreach (var s in new List<Show>(shows.Values))
+                if (s != null) s.Finish(true);
+        }
+
         public void OpenConfig() { Config.Save(); try { Process.Start("notepad.exe", "\"" + Config.FilePath + "\""); } catch { } }
 
         public void SwitchMode(string mode, object from)
@@ -1353,14 +1463,20 @@ namespace AemeathAntigravityBoot
             Config.Save();
             if (from != settings && settings != null) settings.Refresh();
             if (from != tray) RefreshMenu();
-            if (show != null && show.Active) Start(show.Target, Config.PlayIntro);
+            foreach (var s in new List<Show>(shows.Values))
+                if (s != null && s.Active) Start(s.Target, Config.PlayIntro);
         }
 
         public void Update(Action<Config> change, object from)
         {
             change(Config);
             Config.Save();
-            if (show != null) show.Apply(Config);
+            foreach (var s in new List<Show>(shows.Values))
+            {
+                if (s == null) continue;
+                if (!Config.IsTargetEnabled(s.Target.AppKey)) s.Finish(true);
+                else s.Apply(Config);
+            }
             if (from != settings && settings != null) settings.Refresh();
             if (from != tray) RefreshMenu();
         }
@@ -1381,10 +1497,11 @@ namespace AemeathAntigravityBoot
 
         public void Uninstall()
         {
-            var r = MessageBox.Show("会删除这个小程序、开机自启、设置和日志。Antigravity 本身没有被改过，卸载后就是原装的样子。",
+            var r = MessageBox.Show("会删除这个小程序、开机自启、设置和日志。Antigravity 与 DeepSeek Harness 本体均未被改过，卸载后就是原装的样子。",
                 "卸载爱弥斯开机动画？", MessageBoxButton.OKCancel, MessageBoxImage.Question);
             if (r != MessageBoxResult.OK) return;
-            if (show != null) show.Teardown();
+            foreach (var s in new List<Show>(shows.Values))
+                if (s != null) s.Teardown();
             string script = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "uninstall.ps1");
             if (File.Exists(script))
             {
@@ -1401,7 +1518,6 @@ namespace AemeathAntigravityBoot
             Shutdown();
         }
 
-        // 爱弥斯专属粉金青四芒星托盘图标
         static SD.Icon MakeIcon()
         {
             var bmp = new SD.Bitmap(32, 32);
@@ -1427,10 +1543,18 @@ namespace AemeathAntigravityBoot
 
         void SetupTray()
         {
-            tray = new WF.NotifyIcon { Icon = MakeIcon(), Text = "爱弥斯开机动画（A/B/C 三模式）", Visible = true };
+            tray = new WF.NotifyIcon { Icon = MakeIcon(), Text = "爱弥斯开机动画（Antigravity + DeepSeek Harness）", Visible = true };
             var m = new WF.ContextMenuStrip();
+            m.Items.Add(new WF.ToolStripLabel("监听的目标桌面端") { Enabled = false });
+            agItem = new WF.ToolStripMenuItem("Antigravity");
+            agItem.Click += delegate { Update(delegate (Config c) { c.EnableAntigravity = !c.EnableAntigravity; }, null); };
+            dshItem = new WF.ToolStripMenuItem("DeepSeek Harness");
+            dshItem.Click += delegate { Update(delegate (Config c) { c.EnableDeepSeekHarness = !c.EnableDeepSeekHarness; }, null); };
+            m.Items.Add(agItem); m.Items.Add(dshItem);
+            m.Items.Add(new WF.ToolStripSeparator());
+
             m.Items.Add(new WF.ToolStripLabel("演出方案（14.5s《于电子星海轻歌》）") { Enabled = false });
-            modeAItem = new WF.ToolStripMenuItem("方案 A · 一镜到底（电子星海觉醒）");
+            modeAItem = new WF.ToolStripMenuItem("方案 A · 一镜到底（官方星海睁眼觉醒）");
             modeAItem.Click += delegate { SwitchMode("a", null); };
             modeBItem = new WF.ToolStripMenuItem("方案 B · 双形态（电子幽灵 × 隧者机兵）");
             modeBItem.Click += delegate { SwitchMode("b", null); };
@@ -1439,7 +1563,7 @@ namespace AemeathAntigravityBoot
             m.Items.Add(modeAItem); m.Items.Add(modeBItem); m.Items.Add(modeCItem);
             m.Items.Add(new WF.ToolStripSeparator());
 
-            m.Items.Add(new WF.ToolStripLabel("打开 Antigravity 时") { Enabled = false });
+            m.Items.Add(new WF.ToolStripLabel("启动行为") { Enabled = false });
             introItem = new WF.ToolStripMenuItem("播放开屏动画");
             introItem.Click += delegate { Update(delegate (Config c) { c.PlayIntro = !c.PlayIntro; }, null); };
             loopItem = new WF.ToolStripMenuItem("保留循环背景");
@@ -1465,11 +1589,12 @@ namespace AemeathAntigravityBoot
             m.Items.Add(volLabel); m.Items.Add(new WF.ToolStripControlHost(volBar));
             m.Items.Add(new WF.ToolStripSeparator());
 
-            m.Items.Add(new WF.ToolStripLabel("现在，在 Antigravity 窗口上") { Enabled = false });
-            m.Items.Add("播放一次开屏动画", null, delegate { PreviewIntro(); });
-            m.Items.Add("开启循环背景", null, delegate { PreviewLoop(); });
-            stopItem = new WF.ToolStripMenuItem("关掉动画 / 背景");
-            stopItem.Click += delegate { StopShow(); };
+            m.Items.Add(new WF.ToolStripLabel("立即播放") { Enabled = false });
+            m.Items.Add("在 Antigravity 播放开屏", null, delegate { PreviewIntro(Finder.AppAntigravity); });
+            m.Items.Add("在 DeepSeek Harness 播放开屏", null, delegate { PreviewIntro(Finder.AppDeepSeekHarness); });
+            m.Items.Add("开启循环背景", null, delegate { PreviewLoop(null); });
+            stopItem = new WF.ToolStripMenuItem("关掉所有动画 / 背景");
+            stopItem.Click += delegate { StopAllShows(); };
             m.Items.Add(stopItem);
             m.Items.Add(new WF.ToolStripSeparator());
             m.Items.Add("设置与自定义台词…", null, delegate { OpenSettings(); });
@@ -1483,20 +1608,22 @@ namespace AemeathAntigravityBoot
 
         static WF.TrackBar MakeBar(int max)
         {
-            return new WF.TrackBar { Minimum = 0, Maximum = max, TickStyle = WF.TickStyle.None, Width = 210, AutoSize = false, Height = 28, SmallChange = 1, LargeChange = 5 };
+            return new WF.TrackBar { Minimum = 0, Maximum = max, TickStyle = WF.TickStyle.None, Width = 215, AutoSize = false, Height = 28, SmallChange = 1, LargeChange = 5 };
         }
 
         void RefreshMenu()
         {
             if (tray == null) return;
             menuLoading = true;
+            agItem.Checked = Config.EnableAntigravity;
+            dshItem.Checked = Config.EnableDeepSeekHarness;
             string m = Config.NormalizeMode(Config.Mode);
             modeAItem.Checked = (m == "a");
             modeBItem.Checked = (m == "b");
             modeCItem.Checked = (m == "c");
             introItem.Checked = Config.PlayIntro;
             loopItem.Checked = Config.LoopBackground;
-            stopItem.Enabled = show != null;
+            stopItem.Enabled = shows.Count > 0;
             alphaBar.Value = Math.Max(0, Math.Min(80, (int)Math.Round(Config.ResidualAlpha * 100)));
             volBar.Value = Math.Max(0, Math.Min(100, (int)Math.Round(Config.IntroVolume * 100)));
             alphaLabel.Text = "背景不透明度  " + alphaBar.Value + "%";
@@ -1543,19 +1670,21 @@ namespace AemeathAntigravityBoot
             {
                 if (!started)
                 {
-                    if (StartOnCurrent(mode != "loop")) { started = true; showStart = DateTime.Now; }
+                    if (StartOnCurrent(mode != "loop", Finder.AppTest)) { started = true; showStart = DateTime.Now; }
                     else if ((DateTime.Now - startAt).TotalSeconds > 15) Quit();
                     return;
                 }
                 double el = (DateTime.Now - showStart).TotalSeconds;
+                Show activeShow;
+                shows.TryGetValue(Finder.AppTest, out activeShow);
                 for (int i = pending.Count - 1; i >= 0; i--)
-                    if (el >= pending[i] && show != null && shotDir != null)
+                    if (el >= pending[i] && activeShow != null && shotDir != null)
                     {
                         double at = pending[i]; pending.RemoveAt(i);
-                        try { Directory.CreateDirectory(shotDir); show.Snapshot(Path.Combine(shotDir, "shot_" + at.ToString("00.0", CultureInfo.InvariantCulture) + ".png")); }
+                        try { Directory.CreateDirectory(shotDir); activeShow.Snapshot(Path.Combine(shotDir, "shot_" + at.ToString("00.0", CultureInfo.InvariantCulture) + ".png")); }
                         catch { }
                     }
-                if (el >= exitAfter) { timer.Stop(); if (show != null) show.Teardown(); Quit(); }
+                if (el >= exitAfter) { timer.Stop(); StopAllShows(); Quit(); }
             };
             timer.Start();
         }
