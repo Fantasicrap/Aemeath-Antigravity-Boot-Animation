@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>爱弥斯 · 于电子星海轻歌</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{
+  width:100%;height:100vh;min-height:420px;overflow:hidden;
+  background:#000000;
+  color:#fff6fb;
+  cursor:pointer;
+  user-select:none;-webkit-user-select:none;
+  font-family:"PingFang SC","Microsoft YaHei UI",system-ui,sans-serif;
+}
+#stage{
+  position:fixed;inset:0;overflow:hidden;background:#000000;
+}
+#cam{
+  position:absolute;inset:-3%;width:106%;height:106%;
+  transform-origin:50% 45%;
+  will-change:transform,opacity,filter;
+}
+.layer{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;object-position:50% 45%;
+  opacity:0;pointer-events:none;
+  will-change:opacity,transform,-webkit-mask-image,mask-image,filter;
+}
+.layer-center{object-position:50% 45%}
+.layer-add{mix-blend-mode:screen}
+#layer-0{z-index:2}
+#layer-1{z-index:3}
+#layer-2{z-index:4}
+#layer-3{z-index:5}
+#layer-4{z-index:6}
+
+#fx{
+  position:absolute;inset:0;width:100%;height:100%;
+  display:block;z-index:8;pointer-events:none;
+}
+
+#end-veil{
+  position:absolute;inset:0;z-index:9;pointer-events:none;opacity:0;
+  background:radial-gradient(ellipse 80% 78% at 58% 44%, rgba(6,2,14,.58) 0%, rgba(2,1,8,.86) 65%, #000000 100%);
+  will-change:opacity;
+}
+
+/* 思源宋体双语动态台词（用户可自定义，默认：拯救世界的事，就交给我吧……） */
+#subtitle{
+  position:absolute;left:50%;bottom:7.5vh;transform:translateX(-50%);
+  z-index:10;pointer-events:none;opacity:0;
+  width:min(92vw,1100px);text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  font-family:"Noto Serif SC","Source Han Serif SC","STSong","SimSun",Georgia,serif;
+  will-change:opacity,transform;
+}
+#sub-main{
+  font-size:clamp(19px,3.3vh,34px);
+  font-weight:500;line-height:1.32;letter-spacing:.09em;
+  color:#ffffff;
+  text-shadow:
+    0 2px 16px rgba(10,2,20,.96),
+    0 0 10px rgba(255,140,200,.35),
+    1.5px 1.5px 0 rgba(12,6,24,.95),
+    -1.5px -1.5px 0 rgba(12,6,24,.95),
+    1.5px -1.5px 0 rgba(12,6,24,.95),
+    -1.5px 1.5px 0 rgba(12,6,24,.95);
+}
+#sub-sec{
+  font-size:clamp(12px,1.9vh,18px);
+  font-weight:400;line-height:1.3;letter-spacing:.08em;
+  color:rgba(255,226,242,.90);
+  text-shadow:
+    0 2px 12px rgba(8,2,18,.96),
+    1px 1px 0 rgba(12,6,24,.92),
+    -1px -1px 0 rgba(12,6,24,.92),
+    1px -1px 0 rgba(12,6,24,.92),
+    -1px 1px 0 rgba(12,6,24,.92);
+}
+
+#end-badge{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  z-index:11;pointer-events:none;opacity:0;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  text-align:center;will-change:opacity,transform;
+}
+#end-badge .end-star{
+  font-size:22px;line-height:1;
+  background:linear-gradient(135deg,#fff6d6 0%,#ff92cc 52%,#76ebff 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 14px rgba(255,148,208,.9)) drop-shadow(0 0 28px rgba(110,228,255,.5));
+  animation:starBreath 3.6s ease-in-out infinite;
+}
+#end-badge .end-text{
+  font-family:Georgia,"Times New Roman",serif;
+  font-style:italic;font-size:clamp(12px,1.8vh,15px);
+  letter-spacing:.28em;padding-left:.28em;
+  color:rgba(255,232,246,.72);
+  text-shadow:0 2px 14px rgba(0,0,0,1);
+}
+#end-badge .end-sub{
+  font-size:11px;letter-spacing:.22em;padding-left:.22em;
+  color:rgba(155,235,255,.55);
+}
+@keyframes starBreath{
+  0%,100%{opacity:.58;transform:scale(.94)}
+  50%{opacity:1;transform:scale(1.10)}
+}
+
+#hud-skip{
+  position:absolute;left:50%;bottom:1.8vh;transform:translateX(-50%);
+  z-index:12;padding:4px 13px;border-radius:999px;pointer-events:none;
+  font:500 10.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;
+  letter-spacing:.16em;color:rgba(255,220,240,.58);
+  background:rgba(12,6,22,.48);border:1px solid rgba(255,146,204,.24);
+  transition:opacity .65s ease;
+}
+.is-fading #hud-skip,.is-done #hud-skip{opacity:0;pointer-events:none}
+
+#controls{
+  position:absolute;right:16px;bottom:16px;left:16px;z-index:14;
+  display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:7px;
+  opacity:0;pointer-events:none;
+  transition:opacity .45s ease;
+}
+.is-done #controls, #stage:hover #controls, #stage.modal-open #controls{opacity:1;pointer-events:auto}
+.mode-group{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px;border-radius:999px;
+  background:rgba(12,8,22,.72);
+  border:1px solid rgba(255,152,208,.28);
+  backdrop-filter:blur(10px);
+}
+.mode-pill{
+  font:500 11.5px/1 "PingFang SC","Microsoft YaHei UI",sans-serif;
+  letter-spacing:.04em;color:rgba(248,232,244,.75);
+  background:transparent;border:1px solid transparent;border-radius:999px;
+  padding:6px 11px;cursor:pointer;
+  transition:all .18s ease;
+}
+.mode-pill:hover{color:#ffffff;background:rgba(255,140,204,.16)}
+.mode-pill.active{
+  color:#ffffff;
+  background:linear-gradient(135deg,rgba(242,102,174,.55),rgba(74,205,245,.45));
+  border-color:rgba(255,196,230,.65);
+  box-shadow:0 0 12px rgba(255,126,192,.35);
+}
+.ctrl-btn{
+  font:500 11.5px/1 "PingFang SC","Microsoft YaHei UI",sans-serif;
+  letter-spacing:.06em;color:rgba(252,238,248,.90);
+  background:rgba(12,8,24,.72);
+  border:1px solid rgba(130,224,255,.32);border-radius:999px;
+  padding:7px 13px;cursor:pointer;backdrop-filter:blur(10px);
+  transition:background .2s,border-color .2s,transform .15s;
+}
+.ctrl-btn:hover{
+  background:rgba(52,24,68,.88);
+  border-color:rgba(255,168,216,.85);
+  transform:translateY(-1px);
+}
+
+/* 自定义台词弹窗 */
+#sub-modal{
+  position:fixed;inset:0;z-index:20;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(4,2,10,.72);backdrop-filter:blur(8px);
+  cursor:default;
+}
+#sub-modal.open{display:flex}
+.modal-card{
+  width:min(92vw,440px);padding:20px 22px;border-radius:16px;
+  background:linear-gradient(160deg,rgba(22,14,34,.96),rgba(10,12,24,.97));
+  border:1px solid rgba(255,156,210,.36);
+  box-shadow:0 18px 50px rgba(0,0,0,.78),0 0 24px rgba(108,224,255,.15);
+  color:#fff6fb;
+}
+.modal-title{
+  font-size:15px;font-weight:600;letter-spacing:.06em;margin-bottom:14px;
+  display:flex;align-items:center;gap:8px;
+}
+.modal-title span{color:#ff9cd0}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;color:rgba(235,216,232,.78);margin-bottom:5px}
+.field input[type="text"]{
+  width:100%;padding:8px 11px;border-radius:8px;
+  background:rgba(6,4,14,.85);color:#ffffff;
+  border:1px solid rgba(136,216,255,.32);font-size:13px;outline:none;
+}
+.field input[type="text"]:focus{border-color:#ff92cc;box-shadow:0 0 0 2px rgba(255,146,204,.2)}
+.field-check{display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:14px;cursor:pointer}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+.btn-primary{
+  background:linear-gradient(135deg,#e85da8,#4ec3eb);
+  border-color:rgba(255,216,238,.6);color:#ffffff;font-weight:600;
+}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="cam">
+    <img id="layer-0" class="layer" alt="">
+    <img id="layer-1" class="layer" alt="">
+    <img id="layer-2" class="layer" alt="">
+    <img id="layer-3" class="layer" alt="">
+    <img id="layer-4" class="layer" alt="爱弥斯">
+  </div>
+  <canvas id="fx"></canvas>
+  <div id="end-veil" aria-hidden="true"></div>
+  <div id="subtitle" aria-live="polite">
+    <div id="sub-main"></div>
+    <div id="sub-sec"></div>
+  </div>
+  <div id="end-badge" aria-hidden="true">
+    <div class="end-star">✦</div>
+    <div class="end-text">AEMEATH · FLEET SNOWFLUFF</div>
+    <div id="end-mode-label" class="end-sub">电子星海觉醒</div>
+  </div>
+  <div id="hud-skip">[ESC] 跳过 · 悬停右下角可切换 A/B/C 方案与自定义台词</div>
+  <div id="controls">
+    <div class="mode-group" role="group" aria-label="演出方案切换">
+      <button id="btn-mode-a" class="mode-pill active" type="button" data-mode="a">A 星海觉醒</button>
+      <button id="btn-mode-b" class="mode-pill" type="button" data-mode="b">B 隧者机兵</button>
+      <button id="btn-mode-c" class="mode-pill" type="button" data-mode="c">C 远航星忆</button>
+    </div>
+    <button id="btn-sub" class="ctrl-btn" type="button">✎ 台词</button>
+    <button id="btn-bright" class="ctrl-btn" type="button">全亮观赏</button>
+    <button id="btn-sfx" class="ctrl-btn" type="button">音乐 开</button>
+    <button id="btn-replay" class="ctrl-btn" type="button">↻ 重播</button>
+  </div>
+</div>
+
+<div id="sub-modal" role="dialog" aria-modal="true" aria-label="自定义开场台词">
+  <div class="modal-card">
+    <div class="modal-title"><span>✦</span> 自定义爱弥斯开场台词</div>
+    <label class="field-check">
+      <input id="chk-sub-show" type="checkbox" checked> 显示开场台词字幕
+    </label>
+    <div class="field">
+      <label for="inp-sub-main">主台词（默认：拯救世界的事，就交给我吧……）</label>
+      <input id="inp-sub-main" type="text" maxlength="160" placeholder="输入你喜欢的台词…">
+    </div>
+    <div class="field">
+      <label for="inp-sub-sec">副台词（选填，留空则仅显示主台词）</label>
+      <input id="inp-sub-sec" type="text" maxlength="200" placeholder="Leave saving the world to me...">
+    </div>
+    <div class="modal-actions">
+      <button id="btn-sub-reset" class="ctrl-btn" type="button">恢复默认</button>
+      <button id="btn-sub-cancel" class="ctrl-btn" type="button">取消</button>
+      <button id="btn-sub-save" class="ctrl-btn btn-primary" type="button">保存并重播</button>
+    </div>
+  </div>
+</div>
+
+<script>/*__ASSETS__*/</script>
+<script>/*__MCP_SDK__*/</script>
+<script>/*__BUNDLE__*/</script>
+</body>
+</html>

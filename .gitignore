@@ -1,0 +1,8 @@
+windows-overlay/build/
+dist/
+__pycache__/
+*.pyc
+tools/source_audio/_*.wav
+tools/official_footage/
+windows-overlay/assets/*/_*.txt
+antigravity-plugin/aemeath_prefs.json

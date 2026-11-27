@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#221330"/>
+      <stop offset="100%" stop-color="#07050c"/>
+    </radialGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff8ac4"/>
+      <stop offset="68%" stop-color="#f26ba8"/>
+      <stop offset="100%" stop-color="#ffe77a"/>
+    </linearGradient>
+    <linearGradient id="halo" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#4de8ff"/>
+      <stop offset="50%" stop-color="#c6f7ff"/>
+      <stop offset="100%" stop-color="#6cc8ff"/>
+    </linearGradient>
+    <linearGradient id="star" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff8d6"/>
+      <stop offset="55%" stop-color="#ff9ad0"/>
+      <stop offset="100%" stop-color="#6ae8ff"/>
+    </linearGradient>
+  </defs>
+  <circle cx="64" cy="64" r="56" fill="url(#bg)"/>
+  <circle cx="64" cy="64" r="50" fill="none" stroke="url(#halo)" stroke-opacity=".65" stroke-width="1.6"/>
+  <!-- Cyan digital wing halo -->
+  <ellipse cx="64" cy="29" rx="28" ry="8" fill="none" stroke="url(#halo)" stroke-width="2.4" stroke-opacity=".92"/>
+  <path d="M36 29 L24 22 L31 32 Z M92 29 L104 22 L97 32 Z" fill="#6ae8ff" fill-opacity=".85"/>
+  <!-- Flowing pink-to-lemon ponytail -->
+  <path d="M64 30 C44 30 35 45 34 62 C33 78 27 91 18 98 C35 98 46 89 49 78 L79 78 C82 89 93 98 110 98 C101 91 95 78 94 62 C93 45 84 30 64 30 Z" fill="url(#hair)"/>
+  <!-- Face -->
+  <path d="M49 52 C49 69 55 80 64 84 C73 80 79 69 79 52 Z" fill="#fff0f4"/>
+  <!-- Bangs + ahoge -->
+  <path d="M64 31 C49 31 41 41 40 54 C44 61 46 65 48 67 C50 58 53 54 57 50 C60 56 62 60 64 66 C66 60 68 56 71 50 C75 54 78 58 80 67 C82 65 84 61 88 54 C87 41 79 31 64 31 Z" fill="#ff7eb8"/>
+  <path d="M64 31 C61 21 69 15 79 17 C72 19 67 23 66 31 Z" fill="#ff8ac4"/>
+  <!-- Wing hairclip -->
+  <path d="M44 49 L52 46 L48 53 Z" fill="#e9fbff"/>
+  <!-- Golden star eyes -->
+  <circle cx="56" cy="63" r="3.4" fill="#f7b731"/>
+  <circle cx="72" cy="63" r="3.4" fill="#f7b731"/>
+  <path d="M56 60.4 L56.7 62.3 L58.6 63 L56.7 63.7 L56 65.6 L55.3 63.7 L53.4 63 L55.3 62.3 Z" fill="#fffbe0"/>
+  <path d="M72 60.4 L72.7 62.3 L74.6 63 L72.7 63.7 L72 65.6 L71.3 63.7 L69.4 63 L71.3 62.3 Z" fill="#fffbe0"/>
+  <!-- Gentle smile -->
+  <path d="M60.5 73 Q64 76 67.5 73" stroke="#c86b86" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+  <!-- Blue heart Tacet Mark -->
+  <path d="M64 95 C60 91 58 88 60.5 86.5 C62 85.6 63.4 86.7 64 87.8 C64.6 86.7 66 85.6 67.5 86.5 C70 88 68 91 64 95 Z" fill="#5ce1ff"/>
+  <!-- Four-point starlight accent -->
+  <path d="M102 18 C103 25 104 26 111 27 C104 28 103 29 102 36 C101 29 100 28 93 27 C100 26 101 25 102 18 Z" fill="url(#star)"/>
+</svg>
