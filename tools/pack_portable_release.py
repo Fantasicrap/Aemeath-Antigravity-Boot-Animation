@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Package the pre-compiled Foolproof One-Click Release ZIP (傻瓜版) for friends.
+"""Package the pre-compiled Portable One-Click Release ZIP (绿色开箱版).
 
 Outputs:
-  dist/爱弥斯Antigravity开机动画_傻瓜版_v1.0.zip
+  dist/爱弥斯开机动画_全平台AI绿色开箱版_v1.2.zip
 """
 import os
 import shutil
@@ -12,12 +12,13 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WIN_BUILD = os.path.join(REPO_ROOT, "windows-overlay", "build")
 PLUG_DIR = os.path.join(REPO_ROOT, "antigravity-plugin")
 DIST_DIR = os.path.join(REPO_ROOT, "dist")
-STAGE_NAME = "爱弥斯开机动画_全平台AI傻瓜版"
+STAGE_NAME = "爱弥斯开机动画_全平台AI绿色开箱版"
 STAGE_DIR = os.path.join(DIST_DIR, STAGE_NAME)
-ZIP_PATH = os.path.join(DIST_DIR, "爱弥斯开机动画_全平台AI傻瓜版_v1.2.zip")
+ZIP_PATH = os.path.join(DIST_DIR, "爱弥斯开机动画_全平台AI绿色开箱版_v1.2.zip")
+ASCII_ZIP_PATH = os.path.join(DIST_DIR, "Aemeath-Boot-v1.2-All-AI-Apps.zip")
 
 
-INSTALL_PREBUILT_PS1 = r"""# 直接安装预编译好的爱弥斯开机动画（傻瓜版，无需编译，不修改 Antigravity 本体）
+INSTALL_PREBUILT_PS1 = r"""# 直接安装预编译好的爱弥斯开机动画（免编译绿色开箱版，不修改任何 AI 软件本体）
 param([string]$Dir)
 $ErrorActionPreference = 'Stop'
 $name = 'AemeathAntigravityBoot'
@@ -60,8 +61,8 @@ Start-Process "$dest\$name.exe" -ArgumentList '--settings'
 Write-Host ''
 Write-Host "✦ 安装完成！程序已安装到：$dest"
 Write-Host '  右下角托盘已出现粉青四芒星图标，并已弹出设置窗口。'
-Write-Host '  在设置窗口或右键托盘图标即可自由切换 方案 A / B / C 以及自定义开屏台词！'
-Write-Host '  下次打开 Antigravity 就会自动播放爱弥斯开场动画。'
+Write-Host '  在设置窗口或右键托盘图标即可自由勾选监听的 AI 软件、切换方案 A / B / C 以及自定义开屏台词！'
+Write-Host '  下次打开 Antigravity / DeepSeek Harness / Claude / Codex 就会自动播放爱弥斯开场动画。'
 """
 
 CMD_TRY = """@echo off
@@ -71,14 +72,6 @@ taskkill /f /im AemeathAntigravityBoot.exe >nul 2>nul
 echo ✦ 正在启动爱弥斯开机动画（全支持 Antigravity / DeepSeek Harness / Claude Desktop / Codex）...
 echo   提示：先打开任意上述 AI 桌面端，设置窗口会自动弹出，可勾选要监听的应用、切 A/B/C 方案与自定义台词。
 start "" "%~dp0bin\\AemeathAntigravityBoot.exe" --settings --play-now
-"""
-
-CMD_TRY_DSH = """@echo off
-chcp 65001 >nul
-cd /d "%~dp0"
-taskkill /f /im AemeathAntigravityBoot.exe >nul 2>nul
-echo ✦ 正在针对 DeepSeek Harness 启动爱弥斯开场动画试玩...
-start "" "%~dp0bin\\AemeathAntigravityBoot.exe" --settings --play-app deepseek-harness
 """
 
 CMD_INSTALL = """@echo off
@@ -103,7 +96,7 @@ pause
 """
 
 README_TXT = """==========================================================================
-  爱弥斯（Aemeath · 飞行雪绒）开机动画 · 全主流 AI 傻瓜版 v1.2
+  爱弥斯（Aemeath · 飞行雪绒）开机动画 · 全平台 AI 绿色开箱版 v1.2
   一站式全支持：Antigravity / DeepSeek Harness / Claude Desktop / Codex
 ==========================================================================
 
@@ -122,7 +115,7 @@ README_TXT = """================================================================
 3. 支持自定义思源宋体开屏台词（默认：拯救世界的事，就交给我吧……），修改即时生效
 4. 零入侵：完全不修改任何 AI 软件本体文件，随时可一键彻底卸载
 
-【使用步骤（请先完整解压到任意文件夹再双击！）】
+【使用步骤（请先完整解压到任意文件夹再双击）】
 👉 想先看效果（不写入开机自启）：
    双击【1_点我试玩(自动检测所有AI窗口).cmd】
    自动识别当前打开的 Antigravity / DeepSeek Harness / Claude / Codex 窗口并弹出设置窗口，可自由勾选监听目标、切 A/B/C 与改台词
@@ -159,8 +152,9 @@ def main():
     os.makedirs(DIST_DIR, exist_ok=True)
     if os.path.exists(STAGE_DIR):
         shutil.rmtree(STAGE_DIR)
-    if os.path.exists(ZIP_PATH):
-        os.remove(ZIP_PATH)
+    for zp in (ZIP_PATH, ASCII_ZIP_PATH):
+        if os.path.exists(zp):
+            os.remove(zp)
 
     bin_dst = os.path.join(STAGE_DIR, "bin")
     plug_dst = os.path.join(STAGE_DIR, "plugin")
@@ -179,7 +173,7 @@ def main():
         shutil.copy2(os.path.join(PLUG_DIR, fn), os.path.join(plug_dst, fn))
     shutil.copy2(os.path.join(PLUG_DIR, "assets", "logo.svg"), os.path.join(plug_dst, "assets", "logo.svg"))
 
-    # Copy root foolproof launchers & standalone browser preview
+    # Copy root portable launchers & standalone browser preview
     write_text(os.path.join(STAGE_DIR, "1_点我试玩(自动检测所有AI窗口).cmd"), CMD_TRY, bom=False)
     write_text(os.path.join(STAGE_DIR, "2_点我安装(开机自启).cmd"), CMD_INSTALL, bom=False)
     write_text(os.path.join(STAGE_DIR, "3_安装Antigravity侧栏插件.cmd"), CMD_PLUGIN, bom=False)
@@ -187,7 +181,7 @@ def main():
     write_text(os.path.join(STAGE_DIR, "5_彻底卸载.cmd"), CMD_UNINSTALL, bom=False)
     write_text(os.path.join(STAGE_DIR, "使用说明.txt"), README_TXT, bom=True)
 
-    # Create ZIP (use ZIP_STORED for already-compressed MP4s so creation & extraction are blazing fast, ZIP_DEFLATED for text/exe)
+    # Create ZIP (ZIP_STORED for compressed MP4s, ZIP_DEFLATED for text/exe)
     with zipfile.ZipFile(ZIP_PATH, "w") as zf:
         for dirpath, _, filenames in os.walk(STAGE_DIR):
             for fn in sorted(filenames):
@@ -196,8 +190,9 @@ def main():
                 comp = zipfile.ZIP_STORED if fn.lower().endswith((".mp4", ".webp", ".png", ".jpg")) else zipfile.ZIP_DEFLATED
                 zf.write(full, rel, compress_type=comp)
 
+    shutil.copy2(ZIP_PATH, ASCII_ZIP_PATH)
     sz = os.path.getsize(ZIP_PATH)
-    print(f"Foolproof release ZIP built: {ZIP_PATH} ({sz / 1048576:.2f} MiB)")
+    print(f"Portable release ZIP built: {ZIP_PATH} ({sz / 1048576:.2f} MiB)")
 
 
 if __name__ == "__main__":

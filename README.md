@@ -58,9 +58,9 @@ timeline
 
 ## 快速开始
 
-### 方式零：傻瓜版免编译压缩包（推荐发给朋友，解压即用）
+### 方式零：免编译绿色开箱版（推荐直接分享，解压即用）
 
-前往本仓库 **[Releases 页面](https://github.com/Fantasicrap/Aemeath-Antigravity-Boot-Animation/releases)** 下载最新 **`爱弥斯开机动画_全平台AI傻瓜版_v1.2.zip`**，解压后：
+前往本仓库 **[Releases 页面](https://github.com/Fantasicrap/Aemeath-Antigravity-Boot-Animation/releases)** 下载最新 **`爱弥斯开机动画_全平台AI绿色开箱版_v1.2.zip`**，解压后：
 - 双击 **`1_点我试玩(自动检测所有AI窗口).cmd`** 自动在当前已打开的 Antigravity / DeepSeek Harness / Claude / Codex 窗口上立即体验；
 - 双击 **`2_点我安装(开机自启).cmd`** 设为每次打开四大 AI 桌面端自动播放；
 - 双击 **`3_安装Antigravity侧栏插件.cmd`** 一键安装 Antigravity 侧栏插件；
